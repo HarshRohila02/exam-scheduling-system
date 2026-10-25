@@ -56,3 +56,9 @@ def sample(app):
     """Load the sample CSV data (165 students, 5 courses, 6 faculty, 3 rooms, exam week 2-7 Nov)."""
     seed(app)
     return app
+
+
+@pytest.fixture(autouse=True)
+def quick_solver(monkeypatch):
+    """Tests do not need to wait for the solver to stall for 3 seconds."""
+    monkeypatch.setattr("app.scheduler.solver.STALL_SECONDS", 1)
