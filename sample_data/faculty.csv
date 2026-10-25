@@ -1,0 +1,7 @@
+faculty_id,name,designation,department,email,max_duties_override
+F1,Dr. Anita Rao,Professor,Computer Science,f1@university.edu,
+F2,Dr. Sunil Menon,Professor,Electronics,f2@university.edu,
+F3,Dr. Priya Kulkarni,Associate Professor,Mathematics,f3@university.edu,
+F4,Dr. Rahul Bose,Associate Professor,Computer Science,f4@university.edu,
+F5,Mr. Imran Sheikh,Assistant Professor,Computer Science,f5@university.edu,
+F6,Ms. Neha Joshi,Assistant Professor,Electronics,f6@university.edu,

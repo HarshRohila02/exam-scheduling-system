@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Constraints{% endblock %}
+{% block content %}
+{# the form shows what the admin just typed (after an error) or the active version #}
+{% set cur = form_values or active %}
+{% set limits = cur['limits'] if form_values else (active.limits if active else []) %}
+<h3 class="mb-1">Scheduling Constraints</h3>
+<p class="text-muted">
+  These rules are used by the timetable generator. Saving creates a <strong>new version</strong>;
+  older versions are kept below and can be re-activated.
+  {% if active %}Active now: <span class="badge text-bg-success">Version {{ active.version_no }}</span>{% endif %}
+</p>
+
+<form method="post" action="{{ url_for('constraints.save') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100"><div class="card-body">
+        <h5>Rules that must never be broken</h5>
+        <div class="mb-3">
+          <label class="form-label" for="students_per_invigilator">Students per invigilator</label>
+          <input class="form-control" type="number" min="1" max="200" id="students_per_invigilator"
+                 name="students_per_invigilator" value="{{ cur['students_per_invigilator'] }}">
+          <div class="form-text">A room with 60 students and a ratio of 30 needs 2 invigilators.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="room_fill_percent">Room fill percentage</label>
+          <input class="form-control" type="number" min="10" max="100" id="room_fill_percent"
+                 name="room_fill_percent" value="{{ cur['room_fill_percent'] }}">
+          <div class="form-text">How much of each room's capacity may be used. 100 = every seat; 50 = alternate seats.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="no_same_day_exams">Two exams for one student on the same day</label>
+          <select class="form-select" id="no_same_day_exams" name="no_same_day_exams">
+            <option value="yes" {{ 'selected' if cur['no_same_day_exams'] }}>Not allowed (morning + evening also blocked)</option>
+            <option value="no" {{ 'selected' if not cur['no_same_day_exams'] }}>Allowed in different sessions</option>
+          </select>
+        </div>
+        <h6 class="mt-4">Invigilation duty limits per designation</h6>
+        <table class="table table-sm">
+          <thead><tr><th>Designation</th><th>Min duties</th><th>Max duties</th></tr></thead>
+          <tbody>
+            {% for lim in limits %}
+            <tr>
+              <td><input class="form-control form-control-sm" name="designation" value="{{ lim['designation'] if form_values else lim.designation }}"></td>
+              <td><input class="form-control form-control-sm" type="number" min="0" name="min_duties" value="{{ lim['min_duties'] if form_values else lim.min_duties }}"></td>
+              <td><input class="form-control form-control-sm" type="number" min="1" name="max_duties" value="{{ lim['max_duties'] if form_values else lim.max_duties }}"></td>
+            </tr>
+            {% endfor %}
+            {% for _ in range(2) %}
+            <tr>
+              <td><input class="form-control form-control-sm" name="designation" placeholder="new designation"></td>
+              <td><input class="form-control form-control-sm" type="number" min="0" name="min_duties"></td>
+              <td><input class="form-control form-control-sm" type="number" min="1" name="max_duties"></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <div class="form-text">A faculty member can also have a personal maximum on the Faculty page.</div>
+      </div></div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card shadow-sm h-100"><div class="card-body">
+        <h5>Preferences (the solver tries its best)</h5>
+        <div class="mb-3">
+          <label class="form-label" for="duty_balance_weight">Even spread of invigilation duties (0-100)</label>
+          <input class="form-control" type="number" min="0" max="100" id="duty_balance_weight"
+                 name="duty_balance_weight" value="{{ cur['duty_balance_weight'] }}">
+          <div class="form-text">Higher = the solver works harder to give everyone a similar number of duties.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="exam_spacing_weight">Gap between a student's exams (0-100)</label>
+          <input class="form-control" type="number" min="0" max="100" id="exam_spacing_weight"
+                 name="exam_spacing_weight" value="{{ cur['exam_spacing_weight'] }}">
+          <div class="form-text">Higher = students with several exams get more rest days between them.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="solver_time_limit_s">Solver time limit (seconds)</label>
+          <input class="form-control" type="number" min="1" max="600" id="solver_time_limit_s"
+                 name="solver_time_limit_s" value="{{ cur['solver_time_limit_s'] }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="note">Reason for this change (optional)</label>
+          <input class="form-control" id="note" name="note" maxlength="200"
+                 value="{{ form_values['note'] if form_values else '' }}" placeholder="e.g. University reduced the ratio to 1:25">
+        </div>
+        <button class="btn btn-primary">Save as new version</button>
+      </div></div>
+    </div>
+  </div>
+</form>
+
+<h4 class="mt-5">Version history</h4>
+<div class="table-responsive">
+<table class="table table-sm table-striped bg-white">
+  <thead>
+    <tr><th>Version</th><th>Saved</th><th>By</th><th>Note</th><th>Ratio</th><th>Fill %</th><th>Same-day</th>
+        <th>Balance / Spacing</th><th>Duty limits</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for v in versions %}
+    <tr {% if v.is_active %}class="table-success"{% endif %}>
+      <td>v{{ v.version_no }} {% if v.is_active %}<span class="badge text-bg-success">active</span>{% endif %}</td>
+      <td>{{ v.created_at.strftime('%d-%b-%Y %H:%M') }}</td>
+      <td>{{ v.created_by }}</td>
+      <td>{{ v.note }}</td>
+      <td>1:{{ v.students_per_invigilator }}</td>
+      <td>{{ v.room_fill_percent }}</td>
+      <td>{{ 'blocked' if v.no_same_day_exams else 'allowed' }}</td>
+      <td>{{ v.duty_balance_weight }} / {{ v.exam_spacing_weight }}</td>
+      <td>{% for l in v.limits %}{{ l.designation }}: {{ l.min_duties }}-{{ l.max_duties }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+      <td class="text-end">
+        {% if not v.is_active %}
+        <form method="post" action="{{ url_for('constraints.activate', version_id=v.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-primary">Make active</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

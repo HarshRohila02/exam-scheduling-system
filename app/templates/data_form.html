@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if editing else 'Add' }} {{ entity.singular }}{% endblock %}
+{% block content %}
+<h3 class="mb-3">{{ 'Edit' if editing else 'Add' }} {{ entity.singular|lower }}</h3>
+<div class="card shadow-sm" style="max-width: 640px;">
+  <div class="card-body">
+    <form method="post" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% for f in entity.fields %}
+        {% set locked = editing and f.name in entity.locked_on_edit %}
+        {% set v = values.get(f.name) %}
+        <div class="mb-3">
+          <label class="form-label" for="{{ f.name }}">{{ f.label }}{% if f.required %} <span class="text-danger">*</span>{% endif %}</label>
+          {% if f.kind == 'choice' %}
+            <select class="form-select" id="{{ f.name }}" name="{{ f.name }}">
+              {% for c in f.choices %}<option value="{{ c }}" {{ 'selected' if v == c }}>{{ c|capitalize }}</option>{% endfor %}
+            </select>
+          {% elif f.kind == 'bool' %}
+            {% set yes = v is none or v in (True, 'yes', 'y', 'true', '1') %}
+            <select class="form-select" id="{{ f.name }}" name="{{ f.name }}">
+              <option value="yes" {{ 'selected' if yes }}>Yes</option>
+              <option value="no" {{ 'selected' if not yes }}>No</option>
+            </select>
+          {% elif f.kind == 'designation' and designations %}
+            <select class="form-select" id="{{ f.name }}" name="{{ f.name }}">
+              <option value="">- choose -</option>
+              {% for d in designations %}<option value="{{ d }}" {{ 'selected' if v == d }}>{{ d }}</option>{% endfor %}
+            </select>
+          {% else %}
+            <input class="form-control" id="{{ f.name }}" name="{{ f.name }}"
+                   type="{{ 'number' if f.kind == 'int' else 'text' }}"
+                   value="{{ '' if v is none else v }}" {{ 'readonly' if locked }}>
+          {% endif %}
+        </div>
+      {% endfor %}
+      <button class="btn btn-primary">{{ 'Save changes' if editing else 'Add' }}</button>
+      <a class="btn btn-link" href="{{ url_for('data.list_view', entity_key=entity.key) }}">Cancel</a>
+    </form>
+  </div>
+</div>
+{% endblock %}

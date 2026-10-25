@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}University Calendar{% endblock %}
+{% block content %}
+<h3 class="mb-1">University Calendar</h3>
+<p class="text-muted">Exams can only be placed on the dates and sessions listed here. Holidays and (optionally) Sundays are skipped.</p>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm mb-4"><div class="card-body">
+      <h5>Exam period</h5>
+      <form method="post" action="{{ url_for('calendar.save_period') }}" class="row g-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-6">
+          <label class="form-label" for="start_date">Start date</label>
+          <input class="form-control" type="date" id="start_date" name="start_date" value="{{ calendar.start_date if calendar }}" required>
+        </div>
+        <div class="col-6">
+          <label class="form-label" for="end_date">End date</label>
+          <input class="form-control" type="date" id="end_date" name="end_date" value="{{ calendar.end_date if calendar }}" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label" for="skip_sundays">Sundays</label>
+          <select class="form-select" id="skip_sundays" name="skip_sundays">
+            <option value="yes" {{ 'selected' if not calendar or calendar.skip_sundays }}>No exams on Sundays</option>
+            <option value="no" {{ 'selected' if calendar and not calendar.skip_sundays }}>Exams allowed on Sundays</option>
+          </select>
+        </div>
+        <div class="col-12"><button class="btn btn-primary">Save period</button></div>
+      </form>
+    </div></div>
+
+    <div class="card shadow-sm mb-4"><div class="card-body">
+      <h5>Sessions</h5>
+      <form method="post" action="{{ url_for('calendar.save_sessions') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Code</th><th>Name</th><th>Start</th><th>End</th><th></th></tr></thead>
+          <tbody>
+            {% for s in sessions %}
+            <tr>
+              <td><strong>{{ s.code }}</strong></td>
+              <td><input class="form-control form-control-sm" name="name_{{ s.code }}" value="{{ s.name }}"></td>
+              <td><input class="form-control form-control-sm" name="start_{{ s.code }}" value="{{ s.start_time }}" size="5"></td>
+              <td><input class="form-control form-control-sm" name="end_{{ s.code }}" value="{{ s.end_time }}" size="5"></td>
+              <td>
+                <button class="btn btn-sm btn-outline-danger" formmethod="post"
+                        formaction="{{ url_for('calendar.delete_session', code=s.code) }}"
+                        onclick="return confirm('Remove session {{ s.code }}?');">Remove</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <button class="btn btn-primary btn-sm">Save session times</button>
+      </form>
+      <hr>
+      <form method="post" action="{{ url_for('calendar.add_session') }}" class="row g-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-2"><input class="form-control form-control-sm" name="code" placeholder="Code"></div>
+        <div class="col-4"><input class="form-control form-control-sm" name="name" placeholder="Name"></div>
+        <div class="col-2"><input class="form-control form-control-sm" name="start" placeholder="09:30"></div>
+        <div class="col-2"><input class="form-control form-control-sm" name="end" placeholder="12:30"></div>
+        <div class="col-2"><button class="btn btn-outline-primary btn-sm w-100">Add</button></div>
+      </form>
+    </div></div>
+
+    <div class="card shadow-sm"><div class="card-body">
+      <h5>Holidays</h5>
+      <form method="post" action="{{ url_for('calendar.add_holiday') }}" class="row g-2 mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-5"><input class="form-control form-control-sm" type="date" name="date" required></div>
+        <div class="col-5"><input class="form-control form-control-sm" name="reason" placeholder="Reason (optional)"></div>
+        <div class="col-2"><button class="btn btn-outline-primary btn-sm w-100">Add</button></div>
+      </form>
+      <table class="table table-sm">
+        <tbody>
+          {% for h in holidays %}
+          <tr>
+            <td>{{ h.date.strftime('%a, %d %b %Y') }}</td>
+            <td>{{ h.reason }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('calendar.delete_holiday', holiday_id=h.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-outline-danger">Remove</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td class="text-muted">No holidays added.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div></div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card shadow-sm"><div class="card-body">
+      <h5>Exam slots preview</h5>
+      {% if calendar %}
+        <p class="mb-2"><span class="badge text-bg-primary">{{ exam_days }} exam days</span>
+           <span class="badge text-bg-primary">{{ slot_count }} slots</span> available for the generator.</p>
+        <table class="table table-sm">
+          <thead><tr><th>Date</th><th>Status</th><th>Sessions / reason</th></tr></thead>
+          <tbody>
+            {% for day, status, info in days %}
+            <tr class="{{ 'table-light text-muted' if status != 'Exam day' }}">
+              <td>{{ day.strftime('%a, %d %b %Y') }}</td>
+              <td>{{ status }}</td>
+              <td>{{ info }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="text-muted">Save the exam period to see the available slots.</p>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

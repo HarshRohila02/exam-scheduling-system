@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h3 class="mb-3">Dashboard</h3>
+<div class="row g-3 mb-4">
+  {% for label, value in counts.items() %}
+  <div class="col-6 col-md-3">
+    <div class="card text-center shadow-sm">
+      <div class="card-body">
+        <div class="display-6">{{ value }}</div>
+        <div class="text-muted">{{ label }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

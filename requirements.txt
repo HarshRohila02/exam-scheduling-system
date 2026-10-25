@@ -1,0 +1,7 @@
+flask
+flask-sqlalchemy
+pymysql
+cryptography
+ortools
+python-dotenv
+pytest

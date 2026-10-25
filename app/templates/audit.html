@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+<h3 class="mb-3">Audit Log</h3>
+<p class="text-muted">Every schedule-affecting action by examination staff is recorded here.</p>
+<table class="table table-sm table-striped bg-white">
+  <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead>
+  <tbody>
+    {% for log in logs.items %}
+    <tr>
+      <td>{{ log.timestamp.strftime('%d-%b-%Y %H:%M:%S') }}</td>
+      <td>{{ log.username }}</td>
+      <td><span class="badge text-bg-secondary">{{ log.action }}</span></td>
+      <td>{{ log.details }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="4" class="text-center text-muted">No actions recorded yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+<nav>
+  {% if logs.has_prev %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ logs.prev_num }}">Newer</a>{% endif %}
+  {% if logs.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ logs.next_num }}">Older</a>{% endif %}
+</nav>
+{% endblock %}

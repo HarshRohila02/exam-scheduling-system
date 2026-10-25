@@ -1,0 +1,4 @@
+room_id,building,capacity,is_available
+R101,Main Block,60,yes
+R102,Main Block,45,yes
+R201,Annex,30,yes
