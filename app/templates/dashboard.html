@@ -14,4 +14,39 @@
   </div>
   {% endfor %}
 </div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100"><div class="card-body">
+      <h5>Ready to generate?</h5>
+      <ul class="list-group list-group-flush">
+        {% for label, ok, detail, endpoint, entity in checklist %}
+        <li class="list-group-item px-0">
+          {% if ok %}<span class="text-success">&#10004;</span>{% else %}<span class="text-danger">&#10008;</span>{% endif %}
+          <a class="text-decoration-none" href="{{ url_for(endpoint, entity_key=entity) if entity else url_for(endpoint) }}">{{ label }}</a>
+          <span class="small-muted">({{ detail }})</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <a class="btn btn-primary mt-3" href="{{ url_for('timetable.index') }}">Go to timetable generation</a>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card shadow-sm h-100"><div class="card-body">
+      <h5>Schedule status</h5>
+      {% if published %}
+        <p><span class="badge text-bg-success">PUBLISHED</span> Timetable #{{ published.id }} is visible to faculty and students
+           (since {{ published.published_at.strftime('%d-%b-%Y %H:%M') }}).</p>
+      {% else %}
+        <p><span class="badge text-bg-secondary">NOT PUBLISHED</span> Faculty and students cannot see any timetable yet.</p>
+      {% endif %}
+      {% if latest and latest.status in ('DRAFT', 'CONFLICT') %}
+        <p>Latest attempt: <span class="badge text-bg-{{ 'primary' if latest.status == 'DRAFT' else 'warning' }}">{{ latest.status }}</span>
+           <a href="{{ url_for('timetable.detail', timetable_id=latest.id) }}">open timetable #{{ latest.id }}</a></p>
+      {% endif %}
+      <p class="mb-0 text-muted">Active constraints: version {{ version.version_no }}
+        (<a href="{{ url_for('constraints.index') }}">view</a>)</p>
+    </div></div>
+  </div>
+</div>
 {% endblock %}

@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Timetable #{{ timetable.id }}{% endblock %}
+{% block content %}
+{% set badge = {'DRAFT': 'primary', 'PUBLISHED': 'success', 'ARCHIVED': 'secondary', 'CONFLICT': 'warning'}[timetable.status] %}
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+  <div>
+    <h3 class="mb-1">Timetable #{{ timetable.id }} <span class="badge text-bg-{{ badge }}">{{ timetable.status }}</span></h3>
+    <div class="text-muted">
+      Created {{ timetable.created_at.strftime('%d-%b-%Y %H:%M') }} by {{ timetable.created_by }} |
+      constraint version {{ timetable.constraint_version.version_no if timetable.constraint_version }} |
+      solver: {{ timetable.solver_status }}{% if timetable.solve_seconds %} in {{ timetable.solve_seconds }}s{% endif %}
+      {% if timetable.published_at %}| published {{ timetable.published_at.strftime('%d-%b-%Y %H:%M') }}{% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary" href="{{ url_for('timetable.index') }}">Back</a>
+    {% if timetable.status in ('DRAFT', 'CONFLICT') %}
+    <form method="post" action="{{ url_for('timetable.discard', timetable_id=timetable.id) }}"
+          onsubmit="return confirm('Discard this result?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-danger">Discard</button>
+    </form>
+    {% elif timetable.status == 'PUBLISHED' %}
+    <form method="post" action="{{ url_for('timetable.archive', timetable_id=timetable.id) }}"
+          onsubmit="return confirm('Hide this timetable from faculty and students?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn btn-outline-secondary">Archive</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% for note in report.get('notes', []) %}
+  <div class="alert alert-secondary py-2">{{ note }}</div>
+{% endfor %}
+
+{% if timetable.status == 'CONFLICT' %}
+<div class="card border-warning shadow-sm mb-4"><div class="card-body">
+  <h5 class="text-warning-emphasis">No feasible timetable: {{ report.get('message') }}</h5>
+  <p class="mb-2">Nothing was published. The rules below cannot all be satisfied at the same time:</p>
+  <ul>
+    {% for c in report.get('conflicts', []) %}<li>{{ c }}</li>{% endfor %}
+  </ul>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('calendar.index') }}">University Calendar</a>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('constraints.index') }}">Constraints</a>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('data.list_view', entity_key='faculty') }}">Faculty</a>
+  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('data.list_view', entity_key='rooms') }}">Rooms</a>
+</div></div>
+{% else %}
+
+{% if timetable.status == 'DRAFT' %}
+<div class="card shadow-sm mb-4"><div class="card-body">
+  <form method="post" action="{{ url_for('timetable.publish', timetable_id=timetable.id) }}" class="row g-3 align-items-end">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-9">
+      <label class="form-label" for="instructions">Exam instructions for students (optional)</label>
+      <textarea class="form-control" id="instructions" name="instructions" rows="2"
+                placeholder="e.g. Carry your ID card. Report 30 minutes before the exam."></textarea>
+    </div>
+    <div class="col-md-3">
+      <button class="btn btn-success w-100" onclick="return confirm('Publish this timetable to faculty and students?');">Publish timetable</button>
+    </div>
+  </form>
+</div></div>
+{% elif timetable.instructions %}
+<div class="alert alert-info"><strong>Instructions shown to students:</strong> {{ timetable.instructions }}</div>
+{% endif %}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-grid">Timetable</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-seats">Rooms &amp; seating</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-duties">Invigilation duties</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-check">Validation</button></li>
+</ul>
+
+<div class="tab-content">
+  <div class="tab-pane fade show active" id="tab-grid">
+    <div class="table-responsive">
+    <table class="table table-bordered bg-white">
+      <thead class="table-light">
+        <tr><th style="width:140px">Date</th>
+          {% for s in sessions %}<th>{{ s.code }} <span class="small-muted">{{ s.start_time }}-{{ s.end_time }}</span></th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for day, by_session in grid.items() %}
+        <tr>
+          <td><strong>{{ day.strftime('%a, %d %b') }}</strong></td>
+          {% for s in sessions %}
+          <td class="slot-cell">
+            {% for exam in by_session.get(s.code, []) %}
+            <div class="exam-card">
+              <strong>{{ exam.entry.course_code }}</strong> <span class="small-muted">{{ exam.name }}</span><br>
+              <span class="small-muted">{{ exam.total }} students{% if exam.backlog %} ({{ exam.backlog }} backlog){% endif %}</span>
+              {% for room in exam.rooms %}
+              <div class="small">Room <strong>{{ room.room_id }}</strong> ({{ room.count }}):
+                {% for fid, fname in room.invigilators %}{{ fname }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-seats">
+    <div class="accordion" id="seatAccordion">
+      {% for exam in exams %}
+      <div class="accordion-item">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" data-bs-toggle="collapse" data-bs-target="#seat-{{ loop.index }}">
+            {{ exam.entry.course_code }} - {{ exam.name }} &nbsp;
+            <span class="small-muted">{{ exam.entry.exam_date.strftime('%d %b') }} {{ exam.entry.session_code }},
+              {{ exam.total }} students in {{ exam.rooms|length }} room{{ 's' if exam.rooms|length > 1 }}</span>
+          </button>
+        </h2>
+        <div id="seat-{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#seatAccordion">
+          <div class="accordion-body">
+            <div class="row g-3">
+              {% for room in exam.rooms %}
+              <div class="col-lg-6">
+                <h6>Room {{ room.room_id }} - {{ room.count }} students</h6>
+                <div class="small-muted mb-1">Invigilators:
+                  {% for fid, fname in room.invigilators %}{{ fname }} ({{ fid }}){% if not loop.last %}, {% endif %}{% endfor %}</div>
+                <table class="table table-sm table-striped">
+                  <thead><tr><th>Seat</th><th>Student ID</th><th>Name</th><th>Type</th></tr></thead>
+                  <tbody>
+                    {% for seat_no, sid, sname, etype in room.seats %}
+                    <tr><td>{{ seat_no }}</td><td>{{ sid }}</td><td>{{ sname }}</td>
+                        <td>{% if etype == 'backlog' %}<span class="badge text-bg-warning">Backlog</span>{% else %}Regular{% endif %}</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="tab-pane fade" id="tab-duties">
+    <table class="table table-sm table-striped bg-white" style="max-width: 640px;">
+      <thead><tr><th>Faculty</th><th>Name</th><th>Designation</th><th>Duties</th></tr></thead>
+      <tbody>
+        {% for fid, name, designation, count in duty_rows %}
+        <tr><td>{{ fid }}</td><td>{{ name }}</td><td>{{ designation }}</td><td>{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tab-pane fade" id="tab-check">
+    {% if report.get('violations') %}
+      <div class="alert alert-danger"><strong>{{ report['violations']|length }} rule violations found:</strong>
+        <ul class="mb-0">{% for v in report['violations'] %}<li>{{ v }}</li>{% endfor %}</ul></div>
+    {% else %}
+      <div class="alert alert-success"><strong>0 violations.</strong> The independent validator re-checked this timetable.</div>
+    {% endif %}
+    <p class="text-muted mb-1">Rules checked: every exam scheduled once on a valid date and session; no student with two exams in
+      one session (or on one day, if that rule is on); room capacity and no room used by two exams in a session;
+      every student seated; invigilators per room follow the ratio; no faculty member on duty twice in a session, while unavailable,
+      or above the maximum or below the minimum number of duties.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

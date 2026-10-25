@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Timetable{% endblock %}
+{% block content %}
+<h3 class="mb-1">Timetable Generation</h3>
+<p class="text-muted">Generate, validate and publish the examination timetable, room and seat allocation and invigilation duties.</p>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm"><div class="card-body">
+      <h5>1. Check the data</h5>
+      <ul class="list-group list-group-flush mb-3">
+        {% for label, ok, detail, endpoint, entity in checklist %}
+        <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+          <span>{% if ok %}<span class="text-success">&#10004;</span>{% else %}<span class="text-danger">&#10008;</span>{% endif %}
+            {{ label }} <span class="small-muted">({{ detail }})</span></span>
+          {% if not ok %}
+            <a class="btn btn-sm btn-outline-primary"
+               href="{{ url_for(endpoint, entity_key=entity) if entity else url_for(endpoint) }}">Fix</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      <h5>2. Generate</h5>
+      <form method="post" action="{{ url_for('timetable.generate') }}" id="generate-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn btn-primary btn-lg w-100" id="generate-button" {{ 'disabled' if not ready }}>Generate Timetable</button>
+        <div class="form-text" id="generate-help">
+          {% if ready %}Uses constraint version {{ version.version_no }}. The solver stops after at most
+            {{ version.solver_time_limit_s }} seconds. Any earlier draft is replaced.
+          {% else %}Complete the checklist above first.{% endif %}
+        </div>
+      </form>
+    </div></div>
+  </div>
+
+  <div class="col-lg-7">
+    {% if working %}
+    <div class="alert alert-{{ 'success' if working.status == 'DRAFT' else 'warning' }}">
+      <strong>{{ 'Draft ready for review' if working.status == 'DRAFT' else 'Last attempt found conflicts' }}</strong>
+      (timetable #{{ working.id }}, {{ working.created_at.strftime('%d-%b %H:%M') }}).
+      <a class="alert-link" href="{{ url_for('timetable.detail', timetable_id=working.id) }}">Open it</a>
+    </div>
+    {% endif %}
+    {% if published %}
+    <div class="alert alert-info">
+      <strong>Published:</strong> timetable #{{ published.id }} since {{ published.published_at.strftime('%d-%b-%Y %H:%M') }}.
+      <a class="alert-link" href="{{ url_for('timetable.detail', timetable_id=published.id) }}">View</a>
+    </div>
+    {% endif %}
+
+    <h5>All timetables</h5>
+    <table class="table table-sm table-striped bg-white">
+      <thead><tr><th>#</th><th>Status</th><th>Created</th><th>Solver</th><th>Constraints</th><th></th></tr></thead>
+      <tbody>
+        {% for t in timetables %}
+        <tr>
+          <td>{{ t.id }}</td>
+          <td><span class="badge text-bg-{{ {'DRAFT': 'primary', 'PUBLISHED': 'success', 'ARCHIVED': 'secondary', 'CONFLICT': 'warning'}[t.status] }}">{{ t.status }}</span></td>
+          <td>{{ t.created_at.strftime('%d-%b-%Y %H:%M') }}</td>
+          <td>{{ t.solver_status }}{% if t.solve_seconds %} ({{ t.solve_seconds }}s){% endif %}</td>
+          <td>v{{ t.constraint_version.version_no if t.constraint_version }}</td>
+          <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('timetable.detail', timetable_id=t.id) }}">Open</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" class="text-center text-muted">No timetable generated yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // show progress while the solver works (the page stays on this request until it finishes)
+  document.getElementById('generate-form').addEventListener('submit', function () {
+    var button = document.getElementById('generate-button');
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+    document.getElementById('generate-help').textContent = 'The CP-SAT solver is working. Please wait.';
+  });
+</script>
+{% endblock %}
