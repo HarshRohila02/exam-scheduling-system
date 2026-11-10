@@ -5,7 +5,8 @@ timetable tables themselves, so the rule "nothing is visible until the admin pub
 """
 from typing import Dict, List
 
-from app.models import Course, ExamSession, Notification, Timetable
+from app.models import (Course, ExamSession, InvigilationDuty, Notification, SeatAssignment, Timetable,
+                        TimetableEntry)
 from app.scheduler.problem import NotPublishedError
 
 
@@ -33,27 +34,30 @@ def get_student_exams(student_id: str) -> List[Dict]:
     """The logged-in student's own exams with room and seat, in date order."""
     timetable = current_published()
     sessions, courses = _lookups()
+    # ask the database for this student's seats only (not every seat of the timetable)
+    seats = (SeatAssignment.query.join(TimetableEntry)
+             .filter(TimetableEntry.timetable_id == timetable.id, SeatAssignment.student_id == student_id))
     rows = []
-    for entry in timetable.entries:
-        for seat in entry.seats:
-            if seat.student_id == student_id:
-                row = _exam_details(entry, sessions, courses)
-                row.update(room=seat.room_id, seat=seat.seat_no, exam_type=seat.exam_type)
-                rows.append(row)
+    for seat in seats:
+        row = _exam_details(seat.entry, sessions, courses)
+        row.update(room=seat.room_id, seat=seat.seat_no, exam_type=seat.exam_type)
+        rows.append(row)
     return sorted(rows, key=lambda r: (r["date"], r["start_time"]))
 
 
 def get_faculty_duties(faculty_id: str) -> List[Dict]:
-    """The faculty member's own invigilation duties in date order."""
+    """The faculty member's own invigilation duties in date order.
+
+    `duty_id` is the InvigilationDuty row, so a duty-swap request can point at exactly one duty."""
     timetable = current_published()
     sessions, courses = _lookups()
+    duties = (InvigilationDuty.query.join(TimetableEntry)
+              .filter(TimetableEntry.timetable_id == timetable.id, InvigilationDuty.faculty_id == faculty_id))
     rows = []
-    for entry in timetable.entries:
-        for duty in entry.duties:
-            if duty.faculty_id == faculty_id:
-                row = _exam_details(entry, sessions, courses)
-                row["room"] = duty.room_id
-                rows.append(row)
+    for duty in duties:
+        row = _exam_details(duty.entry, sessions, courses)
+        row.update(room=duty.room_id, duty_id=duty.id)
+        rows.append(row)
     return sorted(rows, key=lambda r: (r["date"], r["start_time"]))
 
 

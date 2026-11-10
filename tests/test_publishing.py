@@ -5,11 +5,13 @@ from datetime import date
 import pytest
 
 from app.extensions import db
-from app.models import (AuditLog, ExamCalendar, ExamRoom, Faculty, FacultyUnavailability, Notification,
-                        Room, Timetable)
+from app.models import (AuditLog, ExamCalendar, ExamRoom, Faculty, FacultyUnavailability, InvigilationDuty,
+                        Notification, Registration, Room, Timetable)
 from app.scheduler.problem import InputValidationError, NotPublishedError
-from app.services.published_view import get_faculty_duties, get_master_timetable, get_student_exams
-from app.services.timetable_service import build_problem, generate_timetable, publish_timetable
+from app.services.published_view import (get_exam_instructions, get_faculty_duties, get_master_timetable,
+                                         get_notifications, get_student_exams)
+from app.services.timetable_service import (build_problem, generate_timetable, get_report, publish_timetable,
+                                            validate_saved_timetable)
 from tests.conftest import record
 
 
@@ -166,6 +168,86 @@ def test_archived_timetable_is_hidden_again(client, sample):
     client.post(f"/timetable/{timetable.id}/archive")
     with pytest.raises(NotPublishedError):
         get_student_exams("S001")
+
+
+def test_published_view_gives_instructions_duty_ids_and_notifications(client, sample):
+    """The functions the Faculty and Student portals call, other than the three timetable lists."""
+    timetable = draft(client)
+    client.post(f"/timetable/{timetable.id}/publish", data={"instructions": "  Bring your ID card.  "})
+    assert get_exam_instructions() == "Bring your ID card."
+
+    duties = get_faculty_duties("F1")
+    saved_ids = {d.id for d in InvigilationDuty.query.filter_by(faculty_id="F1")}
+    assert {d["duty_id"] for d in duties} == saved_ids          # a swap request can point at one duty
+
+    messages = get_notifications("FACULTY", "F1")
+    expected = f"You have {len(duties)} invigilation" if duties else "You have no invigilation duties"
+    assert len(messages) == 1 and expected in messages[0].message and messages[0].is_read is False
+    assert len(get_notifications("STUDENT", "S001")) == 1
+    assert get_notifications("STUDENT", "S999") == []           # nobody else is notified
+
+
+def test_validate_saved_timetable_reports_a_hand_edit(client, sample):
+    """Used after any later change to a saved timetable, such as a duty swap."""
+    timetable = draft(client)
+    assert validate_saved_timetable(timetable) == []
+    db.session.delete(timetable.entries[0].duties[0])            # take one invigilator away
+    db.session.commit()
+    assert any("invigilator" in problem for problem in validate_saved_timetable(timetable))
+
+
+def test_failed_publish_is_logged_and_its_report_is_cleared_after_success(client, sample):
+    timetable = draft(client)
+    room = db.session.get(Room, next(iter(timetable.entries[0].rooms)).room_id)
+    capacity = room.capacity
+    room.capacity = 5                                            # the draft no longer fits
+    db.session.commit()
+    client.post(f"/timetable/{timetable.id}/publish")
+    assert "PUBLISH_BLOCKED" in {log.action for log in AuditLog.query}
+    assert get_report(timetable)["violations"]
+    room.capacity = capacity                                     # fixed: publish again
+    db.session.commit()
+    client.post(f"/timetable/{timetable.id}/publish")
+    assert timetable.status == "PUBLISHED"
+    assert get_report(timetable)["violations"] == []             # the published page must not list old violations
+
+
+def test_changed_backlog_status_blocks_publishing(client, sample):
+    timetable = draft(client)
+    registration = Registration.query.filter_by(student_id="S001", course_code="CS301").one()
+    registration.exam_type = "backlog"                           # edited after the draft was made
+    db.session.commit()
+    page = client.post(f"/timetable/{timetable.id}/publish", follow_redirects=True).data
+    assert b"regular/backlog status changed" in page
+    assert timetable.status == "DRAFT"
+    assert any("regular/backlog" in problem for problem in validate_saved_timetable(timetable))
+
+
+def test_publishing_twice_is_refused_and_notifies_once(client, sample):
+    timetable = draft(client)
+    client.post(f"/timetable/{timetable.id}/publish")
+    notifications = Notification.query.count()
+    page = client.post(f"/timetable/{timetable.id}/publish", follow_redirects=True).data
+    assert b"already published" in page
+    assert Notification.query.count() == notifications
+    assert AuditLog.query.filter_by(action="PUBLISH_TIMETABLE").count() == 1
+
+
+def test_discard_removes_a_draft_but_not_a_published_timetable(client, sample):
+    first = draft(client)
+    client.post(f"/timetable/{first.id}/discard")
+    assert db.session.get(Timetable, first.id) is None and ExamRoom.query.count() == 0   # its rows go with it
+    second = draft(client)
+    client.post(f"/timetable/{second.id}/publish")
+    assert client.post(f"/timetable/{second.id}/discard").status_code == 400
+    assert db.session.get(Timetable, second.id).status == "PUBLISHED"
+
+
+def test_instructions_are_escaped_on_the_detail_page(client, sample):
+    timetable = draft(client)
+    client.post(f"/timetable/{timetable.id}/publish", data={"instructions": "<script>alert(1)</script>"})
+    page = client.get(f"/timetable/{timetable.id}").data
+    assert b"<script>alert(1)</script>" not in page and b"&lt;script&gt;alert(1)&lt;/script&gt;" in page
 
 
 def test_records_used_by_a_live_timetable_cannot_be_deleted(client, sample):

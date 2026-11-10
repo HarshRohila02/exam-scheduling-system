@@ -58,8 +58,10 @@ def csrf_token():
 @bp.before_app_request
 def check_csrf():
     if current_app.config.get("CSRF_ENABLED", True) and request.method == "POST":
+        expected = session.get("csrf", "")
         sent = request.form.get("csrf_token", "")
-        if not secrets.compare_digest(sent, session.get("csrf", "")):
+        # compare as bytes: compare_digest raises an error for text with non-ASCII characters
+        if not expected or not secrets.compare_digest(sent.encode(), expected.encode()):
             abort(400, "Invalid or missing form token. Reload the page and try again.")
 
 

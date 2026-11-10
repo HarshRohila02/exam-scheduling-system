@@ -86,7 +86,9 @@ def build_problem() -> Problem:
 
 
 def readiness_checklist():
-    """What must exist before Generate Timetable can run. Returns [(label, ok, detail, endpoint)]."""
+    """What must exist before Generate Timetable can run.
+
+    Returns [(label, ok, detail, endpoint, entity)]; `entity` is the data list to open, or None."""
     calendar = ExamCalendar.query.first()
     version = get_active_version()
     registered = db.session.query(Registration.course_code).distinct().count()
@@ -140,7 +142,29 @@ def placements_from_db(timetable: Timetable) -> List[ExamPlacement]:
 
 
 def _validate(problem: Problem, placements: List[ExamPlacement]) -> List[str]:
-    return validate_timetable(placements, problem.exams, problem.rooms, problem.faculty, problem.slots, problem.rules)
+    return validate_timetable(placements, problem.exams, problem.rooms, problem.faculty, problem.slots, problem.rules,
+                              problem.sessions)
+
+
+def _seat_type_problems(problem: Problem, timetable: Timetable) -> List[str]:
+    """A seat keeps the regular/backlog label from the day the draft was made. If a registration was edited
+    since then, the label is out of date, so the draft must be generated again."""
+    registered = {exam.code: exam.students for exam in problem.exams}
+    changed = set()
+    for entry in timetable.entries:
+        students = registered.get(entry.course_code, {})
+        for seat in entry.seats:
+            if students.get(seat.student_id, seat.exam_type) != seat.exam_type:
+                changed.add(entry.course_code)
+    return [f"{code}: a student's regular/backlog status changed after this draft was made" for code in sorted(changed)]
+
+
+def validate_saved_timetable(timetable: Timetable) -> List[str]:
+    """Re-check a saved timetable against today's data. An empty list means it is valid.
+
+    Meant for any later change to a saved timetable, for example after a duty swap changes who supervises a room."""
+    problem = build_problem()
+    return _validate(problem, placements_from_db(timetable)) + _seat_type_problems(problem, timetable)
 
 
 def _set_report(timetable: Timetable, **report) -> None:
@@ -194,18 +218,27 @@ def publish_timetable(timetable: Timetable, instructions: str) -> Timetable:
         raise ValueError("Only a valid draft timetable can be published; generate one first")
 
     problem = build_problem()                                     # check against today's data
-    violations = _validate(problem, placements_from_db(timetable))
+    violations = _validate(problem, placements_from_db(timetable)) + _seat_type_problems(problem, timetable)
     if violations:
         _set_report(timetable, message="Validation failed at publishing", conflicts=[], violations=violations,
                     notes=problem.notes)
+        log_action("PUBLISH_BLOCKED", f"Timetable {timetable.id}: {len(violations)} rule violation(s)")
         db.session.commit()
         raise ValueError("Cannot publish: validation failed - " + "; ".join(violations[:5])
                          + (f" (and {len(violations) - 5} more)" if len(violations) > 5 else ""))
 
-    for old in Timetable.query.filter_by(status="PUBLISHED").all():
+    # Claim the draft with one conditional UPDATE: if two clicks arrive at the same moment, only one of
+    # them finds the row still DRAFT, so notifications and audit rows are never written twice.
+    claimed = (Timetable.query.filter(Timetable.id == timetable.id, Timetable.status == "DRAFT")
+               .update({"status": "PUBLISHED", "published_at": datetime.now()}, synchronize_session=False))
+    if claimed != 1:
+        db.session.rollback()
+        raise ValueError("This timetable was published or changed a moment ago. Reload the page")
+    for old in Timetable.query.filter(Timetable.status == "PUBLISHED", Timetable.id != timetable.id).all():
         old.status = "ARCHIVED"
-    timetable.status, timetable.published_at = "PUBLISHED", datetime.now()
+    db.session.refresh(timetable)
     timetable.instructions = instructions.strip()
+    _set_report(timetable, message="", conflicts=[], violations=[], notes=problem.notes)   # clear any failed attempt
     _notify(timetable)
     log_action("PUBLISH_TIMETABLE", f"Timetable {timetable.id} published")
     db.session.commit()
