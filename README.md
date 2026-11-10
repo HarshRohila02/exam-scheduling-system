@@ -7,6 +7,8 @@ invigilation duties with a **constraint-programming solver (Google OR-Tools CP-S
 This repository covers SRS sections **3.2.1 - 3.2.4**. The Faculty Portal and Student Portal are built
 separately; they read published data through `app/services/published_view.py`.
 
+**Teammates: start with [HANDOFF.md](HANDOFF.md)** - what is done, how the pieces connect, and a starting point for each portal.
+
 | SRS section | What it covers | Where the code is |
 |---|---|---|
 | 3.2.1 Data Management | Students, courses, registrations, faculty, rooms: add / edit / delete, CSV upload, validation | `app/routes/data.py`, `app/services/validation.py`, `app/services/csv_import.py` |
@@ -53,7 +55,7 @@ hold (the **constraints**) and searches for a combination that satisfies all of 
 | Part of the model | In this project (`app/scheduler/cp_model_builder.py`) |
 |---|---|
 | Variables | For every exam *e*, slot *t* (date + session), room *r*, faculty *f*: `x[e,t]` exam is in slot; `use[e,r,t]` exam uses room; `seats[e,r,t]` students seated in the room; `inv[e,r,t]` invigilators the room needs; `duty[f,r,t]` faculty supervises the room |
-| Domains | Slots come from the University Calendar (holidays and Sundays removed), rooms from the available rooms (capacity x fill %), faculty from the faculty list minus their unavailable sessions |
+| Domains | Slots come from the University Calendar (holidays and Sundays removed; an exam only gets sessions at least as long as the exam), rooms from the available rooms (capacity x fill %), faculty from the faculty list minus their unavailable sessions |
 | Hard constraints | Every exam gets exactly one slot - every student gets a seat and a room holds one exam per session - courses that share students never meet in a session (or on one day, if that rule is on) - invigilators per room = ceil(students / ratio) - nobody supervises two rooms in one session - nobody is used while unavailable - each person's duties stay between their minimum and maximum |
 | Soft constraints (objective) | Spread duties evenly (smallest gap between busiest and lightest faculty) - leave rest days between exams of students who take several - avoid needless extra rooms or invigilators |
 | Solver | `ortools.sat.python.cp_model.CpSolver`, called by the **Generate Timetable** button |
@@ -100,7 +102,7 @@ Call these functions (they raise `NotPublishedError` until the admin publishes):
 from app.services.published_view import (get_student_exams, get_faculty_duties,
                                          get_master_timetable, get_exam_instructions, get_notifications)
 get_student_exams("S001")      # date, session, times, course, room, seat, regular/backlog
-get_faculty_duties("F1")       # date, session, times, course, room
+get_faculty_duties("F1")       # date, session, times, course, room, duty_id
 ```
 
 ## Tests
