@@ -6,7 +6,8 @@ from datetime import date
 
 import pytest
 
-from app.scheduler.problem import (FacultyInput, InfeasibleScheduleError, InputValidationError, RoomInput, Rules)
+from app.scheduler.problem import (FacultyInput, InfeasibleScheduleError, InputValidationError, RoomInput, Rules,
+                                   SessionInput)
 from app.scheduler.validator import validate_timetable
 from tests.conftest import record
 from tests.sample import (exam, rolls, run, sample_exams, sample_faculty, sample_rooms, sample_slots)
@@ -183,3 +184,32 @@ def test_infeasible_explanation_names_the_faculty_rule():
     with pytest.raises(InfeasibleScheduleError) as error:
         run(faculty=faculty, slots=slots)
     assert any("unavailability" in c.lower() for c in error.value.conflicts)
+    assert not any("Room capacity" in c for c in error.value.conflicts)    # rooms are fine, so do not say "add rooms"
+
+
+def test_faculty_shortage_does_not_blame_the_rooms():
+    # 3 small exams in one slot, plenty of rooms, but only 2 faculty -> the people are the problem
+    faculty = [FacultyInput("F1", "Faculty 1", 0, 3), FacultyInput("F2", "Faculty 2", 0, 3)]
+    exams = [exam(f"C{i}", rolls(f"X{i}", 1, 11)) for i in range(1, 4)]
+    one_slot = [s for s in sample_slots(date(2026, 11, 2), date(2026, 11, 2)) if s[1] == "FN"]
+    with pytest.raises(InfeasibleScheduleError) as error:
+        run(exams=exams, faculty=faculty, slots=one_slot, rules=Rules(no_same_day_exams=False, time_limit_s=20))
+    text = " ".join(error.value.conflicts)
+    assert "A faculty member can only supervise one room per session" in text
+    assert "Room capacity" not in text
+
+
+def test_exam_is_not_placed_in_a_session_shorter_than_its_duration():
+    # AN is only 120 minutes. Two clashing 180-minute exams on one day would need FN and AN, which is not allowed.
+    sessions = {"FN": SessionInput("FN", "09:30", "12:30"), "AN": SessionInput("AN", "14:00", "16:00")}
+    common = rolls("S", 1, 11)
+    exams = [exam("A1", common), exam("A2", common)]
+    one_day = sample_slots(date(2026, 11, 2), date(2026, 11, 2))
+    rules = Rules(no_same_day_exams=False, time_limit_s=20)
+    with pytest.raises(InfeasibleScheduleError):
+        run(exams=exams, slots=one_day, rules=rules, sessions=sessions)
+    # a shorter second exam may use the short session
+    exams = [exam("A1", common), exam("A2", common, minutes=100)]
+    result, _ = run(exams=exams, slots=one_day, rules=rules, sessions=sessions)
+    placed = by_code(result)
+    assert placed["A1"].session == "FN" and placed["A2"].session == "AN"

@@ -3,7 +3,7 @@ import copy
 
 import pytest
 
-from app.scheduler.problem import RoomInput
+from app.scheduler.problem import RoomInput, SessionInput
 from app.scheduler.validator import validate_timetable
 from tests.conftest import record
 from tests.sample import run
@@ -72,6 +72,57 @@ def test_detect_room_double_booking(solved):
     p["EE210"].exam_date, p["EE210"].session = p["CS303"].exam_date, p["CS303"].session
     p["EE210"].rooms = {room: 25}
     assert any("Room" in v and "double-booked" in v for v in check(bad, context))
+
+
+def edited(placements, code):
+    """A deep copy of the solved timetable and the placement of one course in it."""
+    bad = copy.deepcopy(placements)
+    return bad, {x.course_code: x for x in bad}[code]
+
+
+def test_detect_student_seated_in_two_rooms(solved):
+    placements, context = solved
+    bad, p = edited(placements, "CS301")
+    first_room = next(iter(p.rooms))
+    student = next(iter(p.seats[first_room]))
+    p.rooms["R999"] = 1                                          # the same student gets a second seat elsewhere
+    p.seats["R999"] = {student: "R999-S01"}
+    p.invigilators["R999"] = [context[2][0].faculty_id]
+    rooms = context[1] + [RoomInput("R999", 10)]
+    problems = check(bad, context, rooms)
+    assert any("more than one room" in v or "registered" in v for v in problems)
+
+
+def test_detect_unknown_invigilator(solved):
+    placements, context = solved
+    bad, p = edited(placements, "CS301")
+    room = next(iter(p.invigilators))
+    p.invigilators[room][0] = "GHOST"
+    assert any("unknown invigilator GHOST" in v for v in check(bad, context))
+
+
+def test_detect_too_many_invigilators(solved):
+    placements, context = solved
+    bad, p = edited(placements, "EE210")                         # 25 students: exactly one invigilator is needed
+    room = next(iter(p.invigilators))
+    spare = next(f.faculty_id for f in context[2] if f.faculty_id not in p.invigilators[room])
+    p.invigilators[room].append(spare)
+    assert any("invigilator(s), needs" in v for v in check(bad, context))
+
+
+def test_detect_invigilators_in_a_room_the_exam_does_not_use(solved):
+    placements, context = solved
+    bad, p = edited(placements, "EE210")
+    p.invigilators["R999"] = [context[2][0].faculty_id]
+    assert any("does not use" in v for v in check(bad, context))
+
+
+def test_detect_exam_longer_than_its_session(solved):
+    placements, context = solved
+    exams, rooms, faculty, slots, rules = context
+    short = {"FN": SessionInput("FN", "09:30", "10:30"), "AN": SessionInput("AN", "14:00", "15:00")}   # 60 minutes each
+    problems = validate_timetable(placements, exams, rooms, faculty, slots, rules, sessions=short)
+    assert sum("lasts 180 minutes" in v for v in problems) == len(placements)      # every exam is too long
 
 
 def test_detect_missing_exam_and_missing_invigilator(solved):

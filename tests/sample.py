@@ -39,12 +39,12 @@ def sample_slots(start=date(2026, 11, 2), end=date(2026, 11, 7), holidays=()):
     return build_slots(start, end, ["FN", "AN"], set(holidays), skip_sundays=True)
 
 
-def run(exams=None, rooms=None, faculty=None, slots=None, rules=None):
+def run(exams=None, rooms=None, faculty=None, slots=None, rules=None, sessions=None):
     """Solve a problem; anything not given comes from the sample."""
     exams = exams if exams is not None else sample_exams()
     rooms = rooms if rooms is not None else sample_rooms()
     faculty = faculty if faculty is not None else sample_faculty()
     slots = slots if slots is not None else sample_slots()
     rules = rules or Rules(time_limit_s=20)
-    result = solve(exams, rooms, faculty, slots, SESSIONS, rules)
+    result = solve(exams, rooms, faculty, slots, sessions or SESSIONS, rules)
     return result, (exams, rooms, faculty, slots, rules)

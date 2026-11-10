@@ -6,13 +6,14 @@ An empty list of violations means the timetable is valid.
 """
 import math
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from app.scheduler.problem import ExamInput, ExamPlacement, FacultyInput, RoomInput, Rules, Slot
+from app.scheduler.problem import ExamInput, ExamPlacement, FacultyInput, RoomInput, Rules, SessionInput, Slot
 
 
 def validate_timetable(placements: List[ExamPlacement], exams: List[ExamInput], rooms: List[RoomInput],
-                       faculty: List[FacultyInput], slots: List[Slot], rules: Rules) -> List[str]:
+                       faculty: List[FacultyInput], slots: List[Slot], rules: Rules,
+                       sessions: Optional[Dict[str, SessionInput]] = None) -> List[str]:
     exam_by_code = {e.code: e for e in exams}
     room_by_id = {r.room_id: r for r in rooms}
     faculty_by_id = {f.faculty_id: f for f in faculty}
@@ -41,8 +42,12 @@ def validate_timetable(placements: List[ExamPlacement], exams: List[ExamInput], 
         if p.slot not in valid_slots:
             problems.append(f"{exam.code} is on {p.exam_date} {p.session}, which is not a valid exam slot "
                             f"(holiday, Sunday or outside the exam period)")
+        session = (sessions or {}).get(p.session)
+        if session is not None and exam.duration_minutes > session.minutes:
+            problems.append(f"{exam.code} lasts {exam.duration_minutes} minutes but session {p.session} "
+                            f"is only {session.minutes} minutes long")
 
-        seated = set()
+        seated = []                                               # a list, so a student seated twice shows up
         for room_id, student_count in p.rooms.items():
             room = room_by_id.get(room_id)
             if room is None:
@@ -56,21 +61,30 @@ def validate_timetable(placements: List[ExamPlacement], exams: List[ExamInput], 
             room_seats = p.seats.get(room_id, {})
             if len(room_seats) != student_count or len(set(room_seats.values())) != len(room_seats):
                 problems.append(f"Seat allocation for {exam.code} in {room_id} is incomplete or duplicated")
-            seated.update(room_seats)
+            seated.extend(room_seats)
 
             need = math.ceil(student_count / rules.students_per_invigilator)
             staff = p.invigilators.get(room_id, [])
-            if len(staff) < need:
+            if len(staff) != need:                                # exactly ceil(students / ratio), as in the model
                 problems.append(f"{exam.code} in {room_id} has {len(staff)} invigilator(s), needs {need}")
             for person in staff:
                 duties[person].append((p.slot, room_id, exam.code))
                 member = faculty_by_id.get(person)
-                if member is not None and p.slot in member.unavailable:
+                if member is None:
+                    problems.append(f"{exam.code} in {room_id} has unknown invigilator {person}")
+                elif p.slot in member.unavailable:
                     problems.append(f"Faculty {person} assigned to {exam.code} while unavailable")
 
         for room_id in sorted(set(p.seats) - set(p.rooms)):
             problems.append(f"{exam.code} has seats in room {room_id}, which the exam does not use")
-        if seated != set(exam.students):
+        for room_id in sorted(r for r, staff in p.invigilators.items() if staff and r not in p.rooms):
+            problems.append(f"{exam.code} has invigilators in room {room_id}, which the exam does not use")
+        if len(seated) != len(set(seated)):
+            problems.append(f"A student of {exam.code} has seats in more than one room")
+        if sum(p.rooms.values()) != exam.size:
+            problems.append(f"{exam.code} places {sum(p.rooms.values())} students in rooms "
+                            f"but {exam.size} are registered")
+        if set(seated) != set(exam.students):
             problems.append(f"Seat allocation for {exam.code} does not match its registered students")
         for student in exam.students:
             student_slots[student].append((p.slot, exam.code))

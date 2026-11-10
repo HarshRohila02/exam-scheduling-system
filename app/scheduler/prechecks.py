@@ -24,8 +24,9 @@ def run_prechecks(exams: List[ExamInput], rooms: List[RoomInput], faculty: List[
 
     # --- an exam bigger than all rooms put together
     total_seats = sum(rules.usable_capacity(r.capacity) for r in rooms)
+    largest = max(rules.usable_capacity(r.capacity) for r in rooms)
     too_big = [f"{e.code} has {e.size} students; all rooms together seat only {total_seats} "
-               f"(largest room: {max(r.capacity for r in rooms)})"
+               f"(largest room: {largest} usable seats)"
                for e in exams if e.size > total_seats]
     if too_big:
         raise InfeasibleScheduleError("Room capacity constraint cannot be satisfied", too_big)

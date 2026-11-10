@@ -11,8 +11,9 @@ A Constraint Satisfaction Problem has three parts: variables, domains and constr
     inv[e,r,t]  how many invigilators room r needs for exam e
     duty[f,r,t] True if faculty member f invigilates room r in slot t
 
-  Domains: the slots come from the University Calendar, the rooms from the Room list (capacity and
-  availability), the faculty from the Faculty list (availability and remaining duty limit).
+  Domains: the slots come from the University Calendar (an exam only gets slots whose session is long
+  enough for it), the rooms from the Room list (capacity and availability), the faculty from the Faculty
+  list (availability and remaining duty limit).
 
   Hard constraints (never broken) and soft constraints (the objective the solver minimises) are
   added in build_model() below, each one numbered to match the comments there.
@@ -24,11 +25,11 @@ cannot all be on together. That is how the admin gets "these rules conflict" ins
 import math
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ortools.sat.python import cp_model
 
-from app.scheduler.problem import ExamInput, FacultyInput, RoomInput, Rules, Slot
+from app.scheduler.problem import ExamInput, FacultyInput, RoomInput, Rules, SessionInput, Slot
 
 # rule group -> (what the group means, what the admin can do about it)
 GROUPS = {
@@ -48,7 +49,14 @@ GROUPS = {
                            "raise the maximum duties of a designation, or add faculty"),
     "faculty_min_duties": ("Faculty minimum duty limits are higher than the invigilation work available",
                            "lower the minimum duties of a designation"),
+    "seat_all_students": ("Seating: every student of every exam needs a seat in the available rooms",
+                          "add rooms, add exam days or sessions, or raise the room fill percentage"),
 }
+
+# "Every student gets a seat" is part of almost every conflict, because invigilators are only needed once
+# students are seated. It is shown to the admin only when no other group explains the conflict, so that a
+# shortage of faculty is not reported as a shortage of rooms.
+QUIET_GROUPS = {"seat_all_students"}
 
 SPACING_CAP = 3          # a gap of more than this many days between two exams earns no extra credit
 ROOM_PENALTY = 1         # small cost per room used
@@ -62,6 +70,7 @@ class ModelBundle:
     seats: Dict[Tuple[int, int, int], cp_model.IntVar]
     duty: Dict[Tuple[int, int, int], cp_model.IntVar]
     group_of_literal: Dict[int, str] = field(default_factory=dict)   # variable index -> rule group
+    switch: Dict[str, cp_model.IntVar] = field(default_factory=dict)  # rule group -> its on/off switch (explain mode)
 
 
 def shared_student_counts(exams: List[ExamInput]) -> Dict[Tuple[int, int], int]:
@@ -79,7 +88,8 @@ def shared_student_counts(exams: List[ExamInput]) -> Dict[Tuple[int, int], int]:
 
 
 def build_model(exams: List[ExamInput], rooms: List[RoomInput], faculty: List[FacultyInput],
-                slots: List[Slot], rules: Rules, explain: bool = False) -> ModelBundle:
+                slots: List[Slot], rules: Rules, explain: bool = False,
+                sessions: Optional[Dict[str, SessionInput]] = None) -> ModelBundle:
     model = cp_model.CpModel()
     E, F, T = len(exams), len(faculty), len(slots)
     usable = [rules.usable_capacity(r.capacity) for r in rooms]
@@ -113,6 +123,11 @@ def build_model(exams: List[ExamInput], rooms: List[RoomInput], faculty: List[Fa
     for e in range(E):
         # every exam is held in exactly one (date, session)
         model.add_exactly_one(x[e, t] for t in range(T))
+        # ... and only in a session that is at least as long as the exam
+        for t, (_, session_code) in enumerate(slots):
+            session = (sessions or {}).get(session_code)
+            if session is not None and session.minutes < exams[e].duration_minutes:
+                model.add(x[e, t] == 0)
     for (e, r, t), used in use.items():
         model.add_implication(used, x[e, t])                      # a room is used only in the exam's slot
         model.add(seats[e, r, t] >= 1).only_enforce_if(used)      # a used room has students in it
@@ -122,7 +137,7 @@ def build_model(exams: List[ExamInput], rooms: List[RoomInput], faculty: List[Fa
     # H1  every student of an exam gets a seat, and a room holds one exam per session
     for e in range(E):
         total = sum(seats[e, r, t] for r in room_ids for t in range(T))
-        hard(model.add(total == exams[e].size), "room_capacity")
+        hard(model.add(total == exams[e].size), "seat_all_students")
     for r in room_ids:
         for t in range(T):
             hard(model.add(sum(use[e, r, t] for e in range(E)) <= 1), "room_capacity")
@@ -176,7 +191,7 @@ def build_model(exams: List[ExamInput], rooms: List[RoomInput], faculty: List[Fa
 
     if explain:
         model.add_assumptions(list(switch.values()))
-        return ModelBundle(model, x, use, seats, duty, {lit.index: g for g, lit in switch.items()})
+        return ModelBundle(model, x, use, seats, duty, {lit.index: g for g, lit in switch.items()}, switch)
 
     # ------------------------------------------------------------ SOFT constraints (the objective)
     # S1  spread the invigilation duties evenly: minimise (busiest load - lightest load)
