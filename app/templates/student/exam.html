@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "student/_macros.html" import date_badge, when_tag %}
+{% block title %}{{ exam.course }} Exam{% endblock %}
+{% block content %}
+<a class="link-cute small d-print-none" href="{{ url_for('student.timetable') }}">← Back to my timetable</a>
+
+{# an "exam ticket": what to bring along in your head on exam day #}
+<div class="ticket mt-3 mb-4">
+  <div class="ticket-top">
+    {{ date_badge(exam) }}
+    <div class="min-w-0">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+        <span class="course-code">{{ exam.course }}</span>
+        {{ when_tag(exam) }}
+        {% if exam.exam_type == 'backlog' %}<span class="tag tag-backlog">Backlog</span>{% endif %}
+      </div>
+      <h4 class="mb-1">{{ exam.course_name }}</h4>
+      <div class="exam-meta">{{ exam.weekday }}, {{ exam.date_text }} &middot; {{ exam.session }} session,
+        {{ exam.start_time }}&ndash;{{ exam.end_time }} &middot; {{ exam.duration_minutes }} minutes</div>
+    </div>
+  </div>
+  <div class="ticket-cut"></div>
+  <div class="row g-3 ticket-bottom">
+    <div class="col-sm-6">
+      <div class="big-tile tile-room h-100">
+        <div class="tile-label">🏫 Examination room</div>
+        <div class="seat-badge">{{ exam.room }}</div>
+        {% if room %}<div class="tile-sub">Building: {{ room.building }}</div>{% endif %}
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <div class="big-tile tile-seat h-100">
+        <div class="tile-label">🪑 Your seat</div>
+        <div class="seat-badge">{{ exam.seat }}</div>
+        {% if room %}<div class="tile-sub">Seat {{ exam.seat.split('-S')[-1]|int }} of {{ room.capacity }} in this room</div>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% include "student/_instructions.html" %}
+{% endblock %}

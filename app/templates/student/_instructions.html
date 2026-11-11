@@ -1,0 +1,7 @@
+{# The admin's exam instructions from the Publish dialog. Autoescaping stays on (see HANDOFF section 9). #}
+{% if instructions %}
+<div class="soft-card note-card mb-4">
+  <div class="soft-card-title">📝 Remember on exam day</div>
+  <div class="instructions">{{ instructions }}</div>
+</div>
+{% endif %}

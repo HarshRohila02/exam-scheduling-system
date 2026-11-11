@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "student/_macros.html" import date_badge, when_tag %}
+{% block title %}Student Dashboard{% endblock %}
+{% block content %}
+<section class="hero mb-4">
+  <div class="hero-text">
+    <h2 class="mb-2">{{ greeting }}, {{ student.name.split()[0] }}! 👋</h2>
+    <div class="d-flex flex-wrap gap-2">
+      <span class="hero-chip">🪪 {{ student.student_id }}</span>
+      <span class="hero-chip">🎓 {{ student.program }}</span>
+      <span class="hero-chip">👥 Section {{ student.section }}</span>
+      <span class="hero-chip">📘 Semester {{ student.semester }}</span>
+    </div>
+  </div>
+  <div class="hero-emoji d-none d-sm-block">📚</div>
+</section>
+
+{% if exams is none %}
+  {% include "student/_not_published.html" %}
+{% else %}
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="soft-card h-100">
+      <div class="soft-card-title">⭐ Your next exam</div>
+      {% if next_exam %}
+        <div class="d-flex gap-3 align-items-center mb-3">
+          {{ date_badge(next_exam) }}
+          <div>
+            <div class="course-code">{{ next_exam.course }}</div>
+            <h5 class="mb-1">{{ next_exam.course_name }}</h5>
+            <div class="exam-meta mb-1">🕘 {{ next_exam.session }} &middot; {{ next_exam.start_time }}&ndash;{{ next_exam.end_time }}</div>
+            {{ when_tag(next_exam) }}
+          </div>
+        </div>
+        <div class="row g-3 mb-3">
+          <div class="col-6"><div class="big-tile tile-room"><div class="tile-label">🏫 Room</div>
+            <div class="seat-badge">{{ next_exam.room }}</div></div></div>
+          <div class="col-6"><div class="big-tile tile-seat"><div class="tile-label">🪑 Seat</div>
+            <div class="seat-badge">{{ next_exam.seat }}</div></div></div>
+        </div>
+        {% if next_exam.state == 'today' %}<p class="cheer">You've got this! 💪 Best of luck.</p>{% endif %}
+        <a class="btn btn-cute btn-sm px-3" href="{{ url_for('student.exam', course_code=next_exam.course) }}">See room and seat details →</a>
+      {% elif exams %}
+        <div class="empty-state small-empty"><div class="empty-emoji">🎉</div>
+          <p class="mb-0">All your exams in this timetable are over. Great job!</p></div>
+      {% else %}
+        <div class="empty-state small-empty"><div class="empty-emoji">🌴</div>
+          <p class="mb-0">You have no exams in the published timetable. If you think this is wrong, contact the examination cell.</p></div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="row g-3">
+      <div class="col-4 col-lg-12"><div class="stat-tile stat-violet"><span class="stat-emoji">📚</span>
+        <div><div class="stat-num">{{ exams|length }}</div><div class="stat-label">Exams in the timetable</div></div></div></div>
+      <div class="col-4 col-lg-12"><div class="stat-tile stat-sun"><span class="stat-emoji">⏳</span>
+        <div><div class="stat-num">{{ upcoming_count }}</div><div class="stat-label">Still to come</div></div></div></div>
+      <div class="col-4 col-lg-12"><div class="stat-tile stat-pink"><span class="stat-emoji">🔔</span>
+        <div><div class="stat-num">{{ student_unread }}</div><div class="stat-label">Unread notifications</div></div></div></div>
+      <div class="col-12"><a class="btn btn-soft w-100 rounded-pill" href="{{ url_for('student.timetable') }}">📅 View full timetable</a></div>
+    </div>
+  </div>
+</div>
+{% include "student/_instructions.html" %}
+{% endif %}
+
+<div class="soft-card">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="soft-card-title mb-0">🔔 Latest notifications</div>
+    <a class="small link-cute" href="{{ url_for('student.notifications') }}">See all →</a>
+  </div>
+  {% for note in notifications %}
+    <div class="note-row {{ 'is-unread' if not note.is_read }}">
+      <div class="note-dot"></div>
+      <div>{{ note.message }}<div class="small-muted">{{ note.created_at.strftime('%d %b %Y, %H:%M') }}</div></div>
+    </div>
+  {% else %}
+    <p class="text-muted mb-0">No notifications yet. 💤</p>
+  {% endfor %}
+</div>
+{% endblock %}

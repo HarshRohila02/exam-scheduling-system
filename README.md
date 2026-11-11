@@ -4,8 +4,8 @@ Admin Portal for exam staff: manage students, faculty, courses and rooms; set th
 and scheduling constraints (with version history); generate an exam timetable, room/seat allocation and
 invigilation duties with a **constraint-programming solver (Google OR-Tools CP-SAT)**; validate it; publish it.
 
-This repository covers SRS sections **3.2.1 - 3.2.4**. The Faculty Portal and Student Portal are built
-separately; they read published data through `app/services/published_view.py`.
+This repository covers SRS sections **3.2.1 - 3.2.4** (Admin Portal) and **3.2.7 - 3.2.8** (Student Portal).
+The Faculty Portal is built separately; portals read published data through `app/services/published_view.py`.
 
 **Teammates: start with [HANDOFF.md](HANDOFF.md)** - what is done, how the pieces connect, and a starting point for each portal.
 
@@ -34,6 +34,8 @@ python run.py                   # open http://localhost:5000
 ```
 
 Log in with the `ADMIN_USERNAME` / `ADMIN_PASSWORD` from your `.env`.
+Students log in with their enrollment number (for example `S001`) and the temporary `STUDENT_DEFAULT_PASSWORD` from `.env`
+(default `student123`); they must choose their own password at the first login.
 
 No Docker? Put `DATABASE_URL=sqlite:///aemss.db` in `.env` and skip the `docker compose` line - the same code runs on SQLite.
 
@@ -46,6 +48,35 @@ No Docker? Put `DATABASE_URL=sqlite:///aemss.db` in `.env` and skip the `docker 
 4. **Constraints**: change *Students per invigilator* and save. A new version is created; the old one is kept and can be re-activated.
 5. **Timetable > Generate Timetable**. Review the grid, the room/seating lists and the duty list, then **Publish**.
 6. To see conflict reporting, shorten the exam period to a single day and generate again.
+
+## Student Portal (SRS 3.2.7 - 3.2.8)
+
+Code: `app/routes/student.py`, `app/templates/student/`, `app/services/student_accounts.py`, tests in `tests/test_student_portal.py`.
+
+| Page | What the student sees |
+|---|---|
+| Dashboard `/student/` | Their details, the next exam with room and seat, a summary, the exam instructions, the latest notifications |
+| My Timetable `/student/timetable` | Every exam: date, day, session, time, course, duration, room, seat, regular/backlog. Table on a computer, cards on a phone, a *Print* button |
+| Exam details `/student/exam/<course>` | Room (and building), seat, seat number within the room, instructions |
+| Notifications `/student/notifications` | Newest first, unread ones marked; *Mark all as read*. The menu shows the unread count |
+| Change Password `/student/password` | Forced at first login; at least 8 characters, not the enrollment number or the temporary password |
+
+- **Login link:** a student's username is their enrollment number (`User.username == Student.student_id`). A login whose student
+  record was deleted is refused.
+- **How the admin gives students their logins:** *Data > Student Logins* (`/student-logins/`) lists every student with their login
+  status (no login / temporary password / active). *Create logins for N students without one* gives each of them their **own random
+  temporary password**, shown once on a list that can be printed or downloaded as CSV and handed out; only password hashes are saved.
+  *Reset password* gives one student a new temporary password. Both are written to the audit log. After adding students on the
+  Students page (by hand or CSV), come back to this page to create their logins.
+- **Demo and tests:** `python seed.py` instead gives every sample student the same `STUDENT_DEFAULT_PASSWORD` from `.env`.
+- **Own data only (SRS 3.6):** the enrollment number always comes from the login session, never from the address. Opening another
+  course's exam page gives 404; admin pages send a student back to the login page, and student pages do the same for the admin.
+- **Nothing before publishing:** until a timetable is `PUBLISHED` (or after it is archived) the pages say "not published yet".
+- Exams before today are shown as *Over*; the sample exam week is 2-7 Nov 2026, so move the exam period forward on the
+  University Calendar page (and generate and publish again) to see an upcoming "next exam" on the dashboard.
+- **Look:** the login and student pages use `app/static/css/student.css` (pastel colours, rounded cards). Bootstrap 5.3.3 is
+  kept in `app/static/vendor/bootstrap/` instead of loading from a CDN, so every page is styled even without internet access.
+- **Existing databases:** `User` has a new column `must_change_password`. Run `python seed.py --reset` once (or add the column by hand).
 
 ## How the CSP model works (SRS 3.2.4)
 

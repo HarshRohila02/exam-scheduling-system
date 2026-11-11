@@ -1,0 +1,39 @@
+{# Small building blocks shared by the student pages. #}
+
+{# A little calendar badge: weekday, day number, month #}
+{% macro date_badge(exam) -%}
+<div class="date-badge {{ 'is-today' if exam.state == 'today' }}">
+  <span class="db-week">{{ exam.weekday[:3] }}</span>
+  <span class="db-day">{{ exam.date[8:10] }}</span>
+  <span class="db-month">{{ exam.date_text[3:6] }}</span>
+</div>
+{%- endmacro %}
+
+{# "Today", "Over" or "in N days" #}
+{% macro when_tag(exam) -%}
+{% if exam.state == 'today' %}<span class="tag tag-today">🔥 Today</span>
+{% elif exam.state == 'done' %}<span class="tag tag-done">✅ Over</span>
+{% elif exam.days_left == 1 %}<span class="tag tag-soon">⏰ Tomorrow</span>
+{% else %}<span class="tag tag-soon">⏳ in {{ exam.days_left }} days</span>{% endif %}
+{%- endmacro %}
+
+{# One exam as a card (timetable page) #}
+{% macro exam_card(exam) -%}
+<a class="exam-tile {{ 'exam-done' if exam.state == 'done' }}" href="{{ url_for('student.exam', course_code=exam.course) }}">
+  {{ date_badge(exam) }}
+  <div class="exam-info">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+      <span class="course-code">{{ exam.course }}</span>
+      {{ when_tag(exam) }}
+      {% if exam.exam_type == 'backlog' %}<span class="tag tag-backlog">Backlog</span>{% endif %}
+    </div>
+    <div class="course-name">{{ exam.course_name }}</div>
+    <div class="exam-meta">🕘 {{ exam.session }} &middot; {{ exam.start_time }}&ndash;{{ exam.end_time }}
+      &middot; {{ exam.duration_minutes }} min</div>
+  </div>
+  <div class="seat-pills">
+    <span class="mini-pill pill-room">🏫 {{ exam.room }}</span>
+    <span class="mini-pill pill-seat">🪑 {{ exam.seat }}</span>
+  </div>
+</a>
+{%- endmacro %}

@@ -14,6 +14,8 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), nullable=False, default="ADMIN")   # ADMIN / FACULTY / STUDENT
+    # True for accounts made with the temporary password; the user must choose their own at first login
+    must_change_password = db.Column(db.Boolean, nullable=False, default=False)
 
 
 # ---------------------------------------------------------------- master data (SRS 3.2.1)

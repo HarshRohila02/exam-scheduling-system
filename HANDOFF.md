@@ -11,7 +11,7 @@ Read this first, then `README.md` (setup and the CSP explanation) and the SRS (`
 | 3.2.4 CSP model (OR-Tools CP-SAT) | **Harsh** | Done and tested |
 | 3.2.1 Data management, 3.2.2 Calendar and constraints | Harshit | A working first version is included, because generation cannot run without data, a calendar and constraints. Harshit: review it, extend it, or replace it (see section 7) |
 | 3.2.5 - 3.2.6 Faculty Portal | Himanshi | **Not started in this repo.** The read-only data interface is ready (section 5) |
-| 3.2.7 - 3.2.8 Student Portal | Harsha | **Not started in this repo.** The read-only data interface is ready (section 5) |
+| 3.2.7 - 3.2.8 Student Portal | Harsha | Done and tested (branch `feature/student-portal`, see the Student Portal section in `README.md`) |
 
 What the Admin Portal does today, end to end: an admin logs in, loads or edits the data, sets the exam period and rules,
 presses **Generate Timetable**, reviews the draft (date/session grid, seat lists, invigilation duties, validation result),
@@ -140,7 +140,8 @@ get_notifications("STUDENT", "S001")
 
 Notifications written at publishing time: every faculty member gets "The examination timetable has been published. You have N invigilation
 duties." (or "...no invigilation duties."); every student who has an exam gets "Your examination timetable, rooms and seats have been
-published." Marking a notification as read (`Notification.is_read`) is not provided; add it in the Faculty/Student portal code.
+published." Marking a notification as read (`Notification.is_read`): the Student Portal does it in `app/routes/student.py` (`mark_read`);
+the Faculty Portal can copy that.
 
 Adding a portal: create `app/routes/faculty.py` (or `student.py`) with a `Blueprint`, add it to the `for module in (...)` list in
 `app/__init__.py`, and use the same patterns as the admin pages (see `app/routes/timetable.py`): a decorator for the role check,
@@ -149,9 +150,13 @@ Adding a portal: create `app/routes/faculty.py` (or `student.py`) with a `Bluepr
 ### Login: what exists and what you have to add
 - `User` has `username`, `password_hash` and `role` (`ADMIN` / `FACULTY` / `STUDENT`). Only the admin account is created (by
   `ensure_admin_user`, from `ADMIN_USERNAME` and `ADMIN_PASSWORD` in `.env`).
-- `auth.login` currently accepts **only** `role == "ADMIN"`, and `admin_required` checks `session["role"] == "ADMIN"`.
-- `User` has no link to a student or faculty record. **Team decision needed:** the simplest option is `username == student_id / faculty_id`
-  (for example `S001`, `F1`); the alternative is a `ref_id` column on `User`. Pick one and use it in both portals.
+- `auth.login` accepts the roles listed in `auth.HOME_PAGES` (`ADMIN` and `STUDENT` today), and `admin_required` checks `session["role"] == "ADMIN"`.
+- `User` has no link column to a student or faculty record. **The Student Portal uses `username == student_id`** (for example `S001`);
+  the Faculty Portal should use `username == faculty_id` (`F1`) the same way.
+- Done for students: `auth.HOME_PAGES` (role-aware login; add `"FACULTY"` there), `student_required`, `User.must_change_password`
+  (temporary password must be changed at first login), and an admin page *Data > Student Logins* (`app/routes/student_logins.py`)
+  that creates logins with a unique temporary password per student and resets passwords. `seed.py` gives the sample students a
+  shared demo password. The Faculty Portal can copy this page for faculty logins.
 - You will need: a `faculty_required` / `student_required` decorator next to `admin_required`, role-aware login, and a way to create
   accounts for existing students and faculty (for example a script in `seed.py`). SRS 3.6: a student or faculty member may only see their own data.
 
@@ -210,7 +215,7 @@ and TC20 / TC21 were reworded (non-admin users cannot publish; a conflict result
 ## 9. Known limitations and open questions
 
 Missing features (the team has to decide or build):
-- **No faculty or student login yet** (section 5), and no swap workflow or admin approval screen. The state diagram says an admin approves swaps: the team has to
+- **No faculty login yet** (section 5; student login is done), and no swap workflow or admin approval screen. The state diagram says an admin approves swaps: the team has to
   decide whether that screen belongs to the Faculty Portal work or to the Admin Portal.
 - **No reports or exports** (PDF / Excel): Stage 2 in the SRS, "Won't Have" in the MoSCoW table.
 - **No backup / standby faculty allocation**, no attendance tracking (optional features in the project description).

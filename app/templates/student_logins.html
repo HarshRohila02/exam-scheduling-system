@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Student Logins{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h3 class="mb-0">Student Logins</h3>
+  {% if counts.none %}
+  <form method="post" action="{{ url_for('student_logins.create') }}"
+        data-confirm="Create logins for {{ counts.none }} students? Their temporary passwords are shown once.">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-primary">Create logins for {{ counts.none }} student{{ 's' if counts.none != 1 }} without one</button>
+  </form>
+  {% endif %}
+</div>
+
+<p class="text-muted">
+  Login ID = the student's <strong>enrollment number</strong>. Each new login gets its own random temporary password,
+  shown once so you can print it or download it as CSV and hand it out. Students must choose their own password at first login.
+  After adding students on the Students page, come back here to create their logins.
+</p>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="small-muted">Students</div><div class="fs-4 fw-bold">{{ counts.students }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="small-muted">No login yet</div><div class="fs-4 fw-bold text-danger">{{ counts.none }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="small-muted">Temporary password (not changed)</div><div class="fs-4 fw-bold text-warning">{{ counts.temporary }}</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
+    <div class="small-muted">Active (own password)</div><div class="fs-4 fw-bold text-success">{{ counts.active }}</div></div></div></div>
+</div>
+
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <form method="get" class="d-flex gap-2" style="max-width: 420px">
+    <input class="form-control" name="q" value="{{ search }}" placeholder="Search enrollment number or name">
+    <button class="btn btn-outline-secondary">Search</button>
+  </form>
+</div></div>
+
+<div class="table-responsive">
+<table class="table table-sm table-striped bg-white">
+  <thead><tr><th>Enrollment number</th><th>Name</th><th>Program</th><th>Section</th><th>Login</th><th class="text-end">Actions</th></tr></thead>
+  <tbody>
+  {% for student, status in rows %}
+    <tr>
+      <td>{{ student.student_id }}</td><td>{{ student.name }}</td><td>{{ student.program }}</td><td>{{ student.section }}</td>
+      <td>
+        {% if status == 'none' %}<span class="badge text-bg-danger">No login</span>
+        {% elif status == 'temporary' %}<span class="badge text-bg-warning">Temporary password</span>
+        {% else %}<span class="badge text-bg-success">Active</span>{% endif %}
+      </td>
+      <td class="text-end">
+        <form method="post" action="{{ url_for('student_logins.reset', student_id=student.student_id) }}" class="d-inline"
+              data-confirm="Give {{ student.student_id }} a new temporary password? The old password stops working.">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-sm btn-outline-primary">{{ 'Create login' if status == 'none' else 'Reset password' }}</button>
+        </form>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="text-center text-muted py-4">No students found.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // ask before creating or resetting logins (the question is in each form's data-confirm attribute)
+  document.querySelectorAll("form[data-confirm]").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+      if (!confirm(form.dataset.confirm)) event.preventDefault();
+    });
+  });
+</script>
+{% endblock %}
