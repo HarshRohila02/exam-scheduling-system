@@ -4,6 +4,10 @@
 <div class="text-center mt-5">
   <h1 class="display-5">{{ error.code }}</h1>
   <p class="lead">{{ error.description }}</p>
-  <a class="btn btn-primary" href="{{ url_for('dashboard.index') }}">Back to dashboard</a>
+  {% if session.get('role') == 'STUDENT' %}
+    <a class="btn btn-primary" href="{{ url_for('student.dashboard') }}">Back to dashboard</a>
+  {% else %}
+    <a class="btn btn-primary" href="{{ url_for('dashboard.index') }}">Back to dashboard</a>
+  {% endif %}
 </div>
 {% endblock %}

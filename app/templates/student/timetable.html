@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "student/_macros.html" import exam_card %}
+{% block title %}My Timetable{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <h3 class="page-title mb-0">📅 My Exam Timetable</h3>
+  {% if exams %}<button class="btn btn-soft btn-sm rounded-pill px-3 d-print-none" onclick="window.print()">🖨️ Print</button>{% endif %}
+</div>
+
+{# also the printed heading: who this timetable belongs to #}
+<p class="text-muted mb-4">
+  <strong class="text-body">{{ student.name }}</strong> ({{ student.student_id }}) &middot; {{ student.program }},
+  Section {{ student.section }}, Semester {{ student.semester }}
+</p>
+
+{% if exams is none %}
+  {% include "student/_not_published.html" %}
+{% elif not exams %}
+  <div class="empty-state"><div class="empty-emoji">🌴</div><p class="mb-0">You have no exams in the published timetable.</p></div>
+{% else %}
+  {# on screen: one friendly card per exam (tap for details) #}
+  <div class="d-grid gap-3 mb-4 d-print-none">
+    {% for e in exams %}{{ exam_card(e) }}{% endfor %}
+  </div>
+
+  {# on paper: a plain table #}
+  <table class="table table-bordered d-none d-print-table">
+    <thead><tr><th>Date</th><th>Session</th><th>Time</th><th>Course</th><th>Duration</th><th>Room</th><th>Seat</th><th>Type</th></tr></thead>
+    <tbody>
+    {% for e in exams %}
+      <tr><td>{{ e.date_text }} ({{ e.weekday }})</td><td>{{ e.session }}</td><td>{{ e.start_time }}&ndash;{{ e.end_time }}</td>
+        <td>{{ e.course }} &ndash; {{ e.course_name }}</td><td>{{ e.duration_minutes }} min</td><td>{{ e.room }}</td>
+        <td>{{ e.seat }}</td><td>{{ 'Backlog' if e.exam_type == 'backlog' else 'Regular' }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  {% include "student/_instructions.html" %}
+{% endif %}
+{% endblock %}

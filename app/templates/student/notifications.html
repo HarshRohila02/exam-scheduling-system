@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <h3 class="page-title mb-0">🔔 Notifications</h3>
+  {% if student_unread %}
+  <form method="post" action="{{ url_for('student.mark_read') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-soft btn-sm rounded-pill px-3">✔️ Mark all as read</button>
+  </form>
+  {% endif %}
+</div>
+<div class="soft-card">
+  {% for note in notifications %}
+    <div class="note-row {{ 'is-unread' if not note.is_read }}">
+      <div class="note-dot"></div>
+      <div>
+        {% if not note.is_read %}<span class="tag tag-today me-1">New</span>{% endif %}
+        {{ note.message }}
+        <div class="small-muted">{{ note.created_at.strftime('%d %b %Y, %H:%M') }}</div>
+      </div>
+    </div>
+  {% else %}
+    <div class="empty-state small-empty"><div class="empty-emoji">💤</div><p class="mb-0">No notifications yet.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

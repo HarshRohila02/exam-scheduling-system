@@ -17,8 +17,8 @@ def create_app(test_config=None):
 
     # Blueprints = groups of related pages (one file per group in app/routes)
     from app import auth
-    from app.routes import audit, calendar, constraints, dashboard, data, timetable
-    for module in (auth, dashboard, data, calendar, constraints, timetable, audit):
+    from app.routes import audit, calendar, constraints, dashboard, data, student, student_logins, timetable
+    for module in (auth, dashboard, data, calendar, constraints, timetable, audit, student, student_logins):
         app.register_blueprint(module.bp)
 
     app.jinja_env.globals["csrf_token"] = csrf_token

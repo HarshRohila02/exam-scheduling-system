@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Student Login Details{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h3 class="mb-0">{{ title }}</h3>
+  <div class="d-flex gap-2 d-print-none">
+    <a class="btn btn-success" download="student-logins.csv"
+       href="data:text/csv;charset=utf-8,{{ csv_text|urlencode }}">Download CSV</a>
+    <button class="btn btn-outline-secondary" onclick="window.print()">Print</button>
+    <a class="btn btn-outline-primary" href="{{ url_for('student_logins.index') }}">Back to Student Logins</a>
+  </div>
+</div>
+
+<div class="alert alert-warning d-print-none">
+  <strong>These passwords are shown only once.</strong> Download or print them now and hand each student their own.
+  If you leave this page without saving them, use <em>Reset password</em> to make new ones.
+</div>
+
+<p class="d-none d-print-block">Log in at the Exam Portal with your enrollment number and this temporary password.
+  You will be asked to choose your own password.</p>
+
+<div class="table-responsive">
+<table class="table table-bordered bg-white">
+  <thead><tr><th>Enrollment number (login ID)</th><th>Name</th><th>Program</th><th>Section</th><th>Temporary password</th></tr></thead>
+  <tbody>
+  {% for student, password in made %}
+    <tr><td>{{ student.student_id }}</td><td>{{ student.name }}</td><td>{{ student.program }}</td><td>{{ student.section }}</td>
+        <td><code class="fs-6">{{ password }}</code></td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

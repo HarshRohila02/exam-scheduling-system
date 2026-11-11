@@ -1,7 +1,9 @@
 """Login, logout, role check (RBAC), CSRF protection and the audit-log helper.
 
-SRS 3.6 Security: only authenticated ADMIN users may reach the Admin Portal, and every
-schedule-affecting action is written to the audit log.
+SRS 3.6 Security: only authenticated ADMIN users may reach the Admin Portal, a student may only see
+their own data in the Student Portal, and every schedule-affecting action is written to the audit log.
+
+How a login is linked to a person: a student's username is their enrollment number (User.username == Student.student_id).
 """
 import secrets
 from functools import wraps
@@ -11,7 +13,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect, render_templa
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
-from app.models import AuditLog, User
+from app.models import AuditLog, Student, User
 
 bp = Blueprint("auth", __name__)
 
@@ -28,6 +30,22 @@ def admin_required(view):
         if session.get("role") != "ADMIN":
             flash("Please log in as examination staff to continue.", "warning")
             return redirect(url_for("auth.login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapper
+
+
+def student_required(view):
+    """Decorator: the page can only be opened by a logged-in STUDENT.
+
+    A student who still has the temporary password is sent to the change-password page first."""
+    @wraps(view)
+    def wrapper(*args, **kwargs):
+        if session.get("role") != "STUDENT":
+            flash("Please log in with your enrollment number to continue.", "warning")
+            return redirect(url_for("auth.login", next=request.path))
+        if session.get("must_change_password") and request.endpoint != "student.change_password":
+            flash("Please choose your own password before continuing.", "warning")
+            return redirect(url_for("student.change_password"))
         return view(*args, **kwargs)
     return wrapper
 
@@ -66,6 +84,16 @@ def check_csrf():
 
 
 # ---------------------------------------------------------------- login / logout
+# Where each role lands after logging in, and which addresses it may be sent back to (?next=...).
+# The Faculty Portal adds "FACULTY" here.
+HOME_PAGES = {"ADMIN": ("dashboard.index", "/"), "STUDENT": ("student.dashboard", "/student/")}
+
+
+def _find_user(username):
+    """Usernames are matched exactly; enrollment numbers may also be typed in lower case (s001 -> S001)."""
+    return User.query.filter_by(username=username).first() or User.query.filter_by(username=username.upper()).first()
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -74,14 +102,22 @@ def login():
         if not username or not password:
             flash("Enter both username and password.", "danger")
         else:
-            user = User.query.filter_by(username=username).first()
-            if user and user.role == "ADMIN" and check_password_hash(user.password_hash, password):
+            user = _find_user(username)
+            if user and user.role in HOME_PAGES and check_password_hash(user.password_hash, password):
+                # a student account whose student record was deleted by the admin must not log in
+                if user.role == "STUDENT" and db.session.get(Student, user.username) is None:
+                    flash("No student record exists for this enrollment number. Contact the examination cell.", "danger")
+                    return render_template("login.html")
                 session.clear()
                 session["username"], session["role"] = user.username, user.role
-                log_action("LOGIN", "Admin logged in")
+                if user.must_change_password:
+                    session["must_change_password"] = True
+                log_action("LOGIN", f"{user.role.title()} logged in")
                 db.session.commit()
+                home, allowed_prefix = HOME_PAGES[user.role]
                 nxt = request.args.get("next", "")
-                return redirect(nxt if nxt.startswith("/") and not nxt.startswith("//") else url_for("dashboard.index"))
+                safe = nxt.startswith(allowed_prefix) and not nxt.startswith("//")
+                return redirect(nxt if safe else url_for(home))
             flash("Wrong username or password.", "danger")
     return render_template("login.html")
 

@@ -2,6 +2,9 @@
 
     python seed.py           add the sample data to any table that is still empty
     python seed.py --reset   wipe every table first, then load the sample data
+
+Both also make a Student Portal login for every student who has none yet (username = enrollment number,
+password = STUDENT_DEFAULT_PASSWORD from .env). Run `python seed.py` again after adding students.
 """
 import sys
 from datetime import date
@@ -13,6 +16,7 @@ from app.extensions import db
 from app.models import ExamCalendar
 from app.services.constraint_versions import ensure_defaults
 from app.services.csv_import import import_csv
+from app.services.student_accounts import create_student_accounts
 from app.services.validation import ENTITIES
 
 SAMPLE_DIR = Path(__file__).parent / "sample_data"
@@ -43,6 +47,9 @@ def seed(app, reset=False):
             db.session.add(ExamCalendar(start_date=date(2026, 11, 2), end_date=date(2026, 11, 7), skip_sundays=True))
             db.session.commit()
             print("Calendar: exam period 02-Nov-2026 to 07-Nov-2026")
+
+        made = create_student_accounts(app.config["STUDENT_DEFAULT_PASSWORD"])
+        print(f"Student logins: {made} new (username = enrollment number, temporary password from .env)")
 
 
 if __name__ == "__main__":
