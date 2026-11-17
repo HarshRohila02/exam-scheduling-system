@@ -1,56 +1,63 @@
 {% extends "base.html" %}
 {% block title %}{{ entity.title }}{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-  <h3 class="mb-0">{{ entity.title }} <span class="badge text-bg-secondary">{{ rows.total }}</span></h3>
-  <a class="btn btn-primary" href="{{ url_for('data.create', entity_key=entity.key) }}">+ Add {{ entity.singular|lower }}</a>
+{# Data Management (SRS 3.2.1): list, search, upload, and links to add / edit / delete #}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h3 class="mb-0">{{ entity.title }} <span class="badge text-bg-secondary">{{ total }}</span></h3>
+  <a class="btn btn-primary" href="{{ url_for('data.add', entity_key=entity.key) }}">+ Add {{ entity.singular|lower }}</a>
 </div>
 
-<div class="card shadow-sm mb-3">
-  <div class="card-body">
-    <div class="row g-3 align-items-end">
-      <div class="col-md-4">
-        <form method="get" class="d-flex gap-2">
-          <input class="form-control" name="q" value="{{ search }}" placeholder="Search {{ entity.title|lower }}">
-          <button class="btn btn-outline-secondary">Search</button>
-        </form>
-      </div>
-      <div class="col-md-8">
-        <form method="post" action="{{ url_for('data.upload', entity_key=entity.key) }}"
-              enctype="multipart/form-data" class="d-flex gap-2 justify-content-md-end">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input class="form-control w-auto" type="file" name="file" accept=".csv">
-          <button class="btn btn-success">Upload CSV</button>
-          <a class="btn btn-outline-secondary" href="{{ url_for('data.template', entity_key=entity.key) }}">Download template</a>
-        </form>
-      </div>
-    </div>
+<div class="row g-3 mb-3">
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100"><div class="card-body">
+      <h6>Search</h6>
+      <form method="get" class="d-flex gap-2">
+        <input class="form-control" name="q" value="{{ search }}" placeholder="ID, name, ...">
+        <button class="btn btn-outline-secondary">Search</button>
+        {% if search %}<a class="btn btn-link" href="{{ url_for('data.list_view', entity_key=entity.key) }}">Clear</a>{% endif %}
+      </form>
+    </div></div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100"><div class="card-body">
+      <h6>Upload many {{ entity.title|lower }} from a CSV or Excel (.xlsx) file</h6>
+      <form method="post" action="{{ url_for('data.upload', entity_key=entity.key) }}" enctype="multipart/form-data"
+            class="d-flex flex-wrap gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input class="form-control w-auto" type="file" name="file" accept=".csv,.xlsx">
+        <button class="btn btn-success">Upload</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('data.download_template', entity_key=entity.key) }}">Download template</a>
+      </form>
+      <div class="small-muted mt-2">Columns: <code>{{ entity.field_names()|join(', ') }}</code>. If any row is wrong, nothing is saved.</div>
+    </div></div>
   </div>
 </div>
 
 <div class="table-responsive">
 <table class="table table-sm table-striped bg-white">
   <thead>
-    <tr>
-      {% for f in entity.fields %}<th>{{ f.label }}</th>{% endfor %}
-      <th class="text-end">Actions</th>
-    </tr>
+    <tr>{% for f in entity.fields %}<th>{{ f.label }}</th>{% endfor %}<th class="text-end">Actions</th></tr>
   </thead>
   <tbody>
-    {% for row in rows.items %}
-    {% set key = row|attr(entity.pk_attr) %}
+    {% for record in records %}
+    {% set record_id = record|attr(entity.id_field) %}
     <tr>
       {% for f in entity.fields %}
-        {% set v = row|attr(f.name) %}
-        <td>{% if f.kind == 'bool' %}{{ 'Yes' if v else 'No' }}{% elif v is none %}<span class="text-muted">-</span>{% else %}{{ v }}{% endif %}</td>
+        {% set value = record|attr(f.name) %}
+        <td>
+          {% if f.type == 'yes_no' %}{{ 'Yes' if value else 'No' }}
+          {% elif f.name == 'exam_type' %}{{ 'Regular' if value == 'regular' else 'Repeat / backlog' }}
+          {% elif value is none or value == '' %}<span class="text-muted">-</span>
+          {% else %}{{ value }}{% endif %}
+        </td>
       {% endfor %}
       <td class="text-end text-nowrap">
         {% if entity.key == 'faculty' %}
-          <a class="btn btn-sm btn-outline-info" href="{{ url_for('data.unavailability', faculty_id=key) }}">Unavailable dates</a>
+          <a class="btn btn-sm btn-outline-info" href="{{ url_for('data.unavailability', faculty_id=record_id) }}">Unavailable dates</a>
         {% endif %}
-        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('data.edit', entity_key=entity.key, key=key) }}">Edit</a>
-        <form method="post" action="{{ url_for('data.delete', entity_key=entity.key, key=key) }}" class="d-inline"
-              onsubmit="return confirm('Delete this {{ entity.singular|lower }}?');">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('data.edit', entity_key=entity.key, record_id=record_id) }}">Edit</a>
+        <form method="post" class="d-inline" action="{{ url_for('data.delete', entity_key=entity.key, record_id=record_id) }}"
+              onsubmit="return confirm('Delete {{ entity.singular|lower }} {{ record_id }}? This cannot be undone.');">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn btn-sm btn-outline-danger">Delete</button>
         </form>
@@ -58,15 +65,10 @@
     </tr>
     {% else %}
     <tr><td colspan="{{ entity.fields|length + 1 }}" class="text-center text-muted py-4">
-      No {{ entity.title|lower }} found. Add one or upload a CSV file.</td></tr>
+      {% if search %}Nothing matches "{{ search }}".{% else %}No {{ entity.title|lower }} yet. Add one or upload a file.{% endif %}
+    </td></tr>
     {% endfor %}
   </tbody>
 </table>
 </div>
-
-<nav class="d-flex gap-2">
-  {% if rows.has_prev %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ rows.prev_num }}&q={{ search }}">Previous</a>{% endif %}
-  <span class="align-self-center small-muted">Page {{ rows.page }} of {{ rows.pages or 1 }}</span>
-  {% if rows.has_next %}<a class="btn btn-sm btn-outline-secondary" href="?page={{ rows.next_num }}&q={{ search }}">Next</a>{% endif %}
-</nav>
 {% endblock %}
