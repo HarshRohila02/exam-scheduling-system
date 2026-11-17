@@ -1,228 +1,232 @@
-"""SRS 3.2.1 - Admin Portal Data Management.
+"""Admin Portal - Data Management pages (SRS 3.2.1, MoSCoW R2).
 
-One set of routes serves Students, Courses, Faculty, Rooms and Registrations. Which fields exist and
-how they are checked is described in app/services/validation.py (ENTITIES), so adding a field
-there is enough to get it into the form, the table and the CSV upload.
+Use cases: Manage Student / Faculty / Course / Room Records, Import Records from CSV / Excel File,
+Validate Record Data. DFD Level 1 process 2.0 "Manage Master Data" (stores D2 - D5).
+
+One set of pages serves every record type in app/services/validation.py:
+    /data/<key>/                 list + search            (key = students, courses, registrations, faculty, rooms)
+    /data/<key>/add              add a record
+    /data/<key>/<id>/edit        edit a record (the ID itself cannot change)
+    /data/<key>/<id>/delete      delete a record
+    /data/<key>/upload           upload a CSV or Excel file
+    /data/<key>/template.csv     download an empty file with the right columns
+    /data/faculty/<id>/unavailability    dates on which a faculty member cannot invigilate
+Only logged-in examination staff (ADMIN) can open these pages, and every change goes into the audit log.
 """
-from datetime import date
-
-from flask import (Blueprint, Response, abort, flash, redirect, render_template, request, url_for)
+from flask import Blueprint, Response, abort, flash, redirect, render_template, request, url_for
 
 from app.auth import admin_required, log_action
 from app.extensions import db
-from app.models import (ExamRoom, ExamSession, Faculty, FacultyUnavailability, InvigilationDuty,
-                        SeatAssignment, Timetable, TimetableEntry)
-from app.services.csv_import import import_csv, template_csv
-from app.services.validation import ENTITIES, load_context, validate_record
+from app.models import (ExamRoom, ExamSession, Faculty, FacultyUnavailability, InvigilationDuty, SeatAssignment,
+                        Timetable, TimetableEntry)
+from app.services.calendar_service import read_date
+from app.services.csv_import import ALLOWED_ENDINGS, import_file, template_csv
+from app.services.validation import ENTITIES, check_record, collect_known
 
 bp = Blueprint("data", __name__, url_prefix="/data")
 
-LIVE_STATUSES = ("DRAFT", "PUBLISHED")      # timetables that still depend on the master data
-PER_PAGE = 25
+TIMETABLES_IN_USE = ("DRAFT", "PUBLISHED")
 
 
-# ---------------------------------------------------------------- small helpers
-def get_entity(entity_key):
-    entity = ENTITIES.get(entity_key)
-    if entity is None:
+# ---------------------------------------------------------------- helpers
+def find_type(entity_key):
+    if entity_key not in ENTITIES:
         abort(404)
-    return entity
+    return ENTITIES[entity_key]
 
 
-def get_row(entity, key):
-    """Find one record by the value in the URL (registrations use a numeric id)."""
-    if entity.pk_attr == "id":
-        if not key.isdigit():
+def find_record(record_type, record_id):
+    """Load one record from the ID in the web address (registrations use a number)."""
+    if record_type.id_field == "id":
+        if not record_id.isdigit():
             abort(404)
-        key = int(key)
-    row = entity.model.query.filter(getattr(entity.model, entity.pk_attr) == key).first()
-    if row is None:
+        record_id = int(record_id)
+    record = db.session.get(record_type.model, record_id)
+    if record is None:
         abort(404)
-    return row
+    return record
 
 
-def in_use_message(entity, row):
-    """If a draft/published timetable uses this record, return why it cannot be deleted."""
-    def live(model, condition):
-        query = (model.query.join(TimetableEntry, model.entry_id == TimetableEntry.id)
-                 .join(Timetable, TimetableEntry.timetable_id == Timetable.id)
-                 .filter(Timetable.status.in_(LIVE_STATUSES), condition))
-        return query.first() is not None
+def used_by_timetable(record_type, record):
+    """True if a draft or published timetable depends on this record (then it must not be deleted)."""
+    def in_live_timetable(query):
+        return (query.join(Timetable, TimetableEntry.timetable_id == Timetable.id)
+                .filter(Timetable.status.in_(TIMETABLES_IN_USE)).first() is not None)
 
-    used = False
-    if entity.key == "courses":
-        used = (TimetableEntry.query.join(Timetable).filter(
-            Timetable.status.in_(LIVE_STATUSES), TimetableEntry.course_code == row.course_code).first())
-    elif entity.key == "registrations":
-        used = (TimetableEntry.query.join(Timetable).filter(
-            Timetable.status.in_(LIVE_STATUSES), TimetableEntry.course_code == row.course_code).first())
-    elif entity.key == "students":
-        used = live(SeatAssignment, SeatAssignment.student_id == row.student_id)
-    elif entity.key == "faculty":
-        used = live(InvigilationDuty, InvigilationDuty.faculty_id == row.faculty_id)
-    elif entity.key == "rooms":
-        used = live(ExamRoom, ExamRoom.room_id == row.room_id)
-    if used:
-        return (f"Cannot delete this {entity.singular.lower()}: a draft or published timetable uses it. "
-                f"Archive the timetable or generate a new one first.")
-    return None
+    if record_type.key in ("courses", "registrations"):
+        return in_live_timetable(TimetableEntry.query.filter(TimetableEntry.course_code == record.course_code))
+    if record_type.key == "students":
+        table, column = SeatAssignment, SeatAssignment.student_id == record.student_id
+    elif record_type.key == "faculty":
+        table, column = InvigilationDuty, InvigilationDuty.faculty_id == record.faculty_id
+    else:
+        table, column = ExamRoom, ExamRoom.room_id == record.room_id
+    return in_live_timetable(table.query.join(TimetableEntry, table.entry_id == TimetableEntry.id).filter(column))
 
 
-# ---------------------------------------------------------------- list + search
+def show_form(record_type, values, editing, record_id=None):
+    return render_template("data_form.html", entity=record_type, values=values, editing=editing,
+                           record_id=record_id, designations=collect_known()["designations"])
+
+
+# ---------------------------------------------------------------- list and search
 @bp.route("/<entity_key>/")
 @admin_required
 def list_view(entity_key):
-    entity = get_entity(entity_key)
+    record_type = find_type(entity_key)
     search = request.args.get("q", "").strip()
-    page = request.args.get("page", 1, type=int)
-    query = entity.model.query
+    query = record_type.model.query
     if search:
-        text_columns = [getattr(entity.model, f.name) for f in entity.fields
-                        if f.kind in ("id", "text", "email", "designation")]
-        query = query.filter(db.or_(*[col.ilike(f"%{search}%") for col in text_columns]))
-    rows = query.order_by(getattr(entity.model, entity.pk_attr)).paginate(page=page, per_page=PER_PAGE, error_out=False)
-    return render_template("data_list.html", entity=entity, rows=rows, search=search)
+        # look for the text in every text-like column
+        columns = [getattr(record_type.model, f["name"]) for f in record_type.fields
+                   if f["type"] in ("id", "text", "email", "designation")]
+        query = query.filter(db.or_(*[column.ilike(f"%{search}%") for column in columns]))
+    records = query.order_by(getattr(record_type.model, record_type.id_field)).all()
+    return render_template("data_list.html", entity=record_type, records=records, search=search,
+                           total=record_type.model.query.count())
 
 
 # ---------------------------------------------------------------- add
-@bp.route("/<entity_key>/new", methods=["GET", "POST"])
+@bp.route("/<entity_key>/add", methods=["GET", "POST"])
 @admin_required
-def create(entity_key):
-    entity = get_entity(entity_key)
-    ctx = load_context()
-    values = {}
-    if request.method == "POST":
-        values = request.form
-        clean, errors = validate_record(entity, request.form, ctx)
-        if errors:
-            for message in errors:
-                flash(message, "danger")
-        else:
-            row = entity.model(**clean)
-            db.session.add(row)
-            log_action("CREATE", f"{entity.singular}: {', '.join(str(v) for v in list(clean.values())[:2])}")
-            db.session.commit()
-            flash(f"{entity.singular} added.", "success")
-            return redirect(url_for("data.list_view", entity_key=entity.key))
-    return render_template("data_form.html", entity=entity, values=values, editing=False,
-                           designations=ctx["designations"])
+def add(entity_key):
+    record_type = find_type(entity_key)
+    if request.method == "GET":
+        return show_form(record_type, {}, editing=False)
+
+    values, errors = check_record(record_type, request.form, collect_known(), is_new=True)
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return show_form(record_type, request.form, editing=False)       # keep what was typed
+
+    db.session.add(record_type.model(**values))
+    first_value = values[record_type.fields[0]["name"]]
+    log_action("CREATE", f"{record_type.singular} {first_value}")
+    db.session.commit()
+    flash(f"{record_type.singular} {first_value} added.", "success")
+    return redirect(url_for("data.list_view", entity_key=entity_key))
 
 
 # ---------------------------------------------------------------- edit
-@bp.route("/<entity_key>/<key>/edit", methods=["GET", "POST"])
+@bp.route("/<entity_key>/<record_id>/edit", methods=["GET", "POST"])
 @admin_required
-def edit(entity_key, key):
-    entity = get_entity(entity_key)
-    row = get_row(entity, key)
-    ctx = load_context()
-    if request.method == "POST":
-        raw = request.form.to_dict()
-        for name in entity.locked_on_edit:               # IDs cannot be changed
-            raw[name] = getattr(row, name)
-        clean, errors = validate_record(entity, raw, ctx, editing=True)
-        if errors:
-            for message in errors:
-                flash(message, "danger")
-            values = raw
-        else:
-            for name, value in clean.items():
-                if name not in entity.locked_on_edit:
-                    setattr(row, name, value)
-            log_action("UPDATE", f"{entity.singular} {key}")
-            db.session.commit()
-            flash(f"{entity.singular} updated.", "success")
-            return redirect(url_for("data.list_view", entity_key=entity.key))
-    else:
-        values = {f.name: getattr(row, f.name) for f in entity.fields}
-    return render_template("data_form.html", entity=entity, values=values, editing=True,
-                           designations=ctx["designations"])
+def edit(entity_key, record_id):
+    record_type = find_type(entity_key)
+    record = find_record(record_type, record_id)
+    if request.method == "GET":
+        current = {name: getattr(record, name) for name in record_type.field_names()}
+        return show_form(record_type, current, editing=True, record_id=record_id)
+
+    form = request.form.to_dict()
+    # The identifying fields cannot be changed: always use the stored values
+    locked = ["student_id", "course_code"] if entity_key == "registrations" else [record_type.id_field]
+    for name in locked:
+        form[name] = getattr(record, name)
+
+    values, errors = check_record(record_type, form, collect_known(), is_new=False)
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return show_form(record_type, form, editing=True, record_id=record_id)
+
+    for name, value in values.items():
+        setattr(record, name, value)
+    log_action("UPDATE", f"{record_type.singular} {record_id}")
+    db.session.commit()
+    flash(f"{record_type.singular} {record_id} updated.", "success")
+    return redirect(url_for("data.list_view", entity_key=entity_key))
 
 
 # ---------------------------------------------------------------- delete
-@bp.route("/<entity_key>/<key>/delete", methods=["POST"])
+@bp.route("/<entity_key>/<record_id>/delete", methods=["POST"])
 @admin_required
-def delete(entity_key, key):
-    entity = get_entity(entity_key)
-    row = get_row(entity, key)
-    blocked = in_use_message(entity, row)
-    if blocked:
-        flash(blocked, "danger")
+def delete(entity_key, record_id):
+    record_type = find_type(entity_key)
+    record = find_record(record_type, record_id)
+    if used_by_timetable(record_type, record):
+        flash(f"This {record_type.singular.lower()} cannot be deleted: a draft or published timetable uses it. "
+              f"Archive that timetable or generate a new one first.", "danger")
     else:
-        db.session.delete(row)
-        log_action("DELETE", f"{entity.singular} {key}")
+        db.session.delete(record)            # registrations / unavailable dates of the record go with it
+        log_action("DELETE", f"{record_type.singular} {record_id}")
         db.session.commit()
-        flash(f"{entity.singular} deleted.", "success")
-    return redirect(url_for("data.list_view", entity_key=entity.key))
+        flash(f"{record_type.singular} {record_id} deleted.", "success")
+    return redirect(url_for("data.list_view", entity_key=entity_key))
 
 
-# ---------------------------------------------------------------- CSV upload + template
+# ---------------------------------------------------------------- upload and template
 @bp.route("/<entity_key>/upload", methods=["POST"])
 @admin_required
 def upload(entity_key):
-    entity = get_entity(entity_key)
+    record_type = find_type(entity_key)
+    back_to_list = redirect(url_for("data.list_view", entity_key=entity_key))
     file = request.files.get("file")
-    back = redirect(url_for("data.list_view", entity_key=entity.key))
-    if not file or not file.filename:
-        flash("Choose a CSV file first.", "danger")
-        return back
-    if not file.filename.lower().endswith(".csv"):
-        flash("Only .csv files can be uploaded. In Excel use Save As > CSV.", "danger")
-        return back
-    saved, errors = import_csv(entity, file.read())
-    if errors:
+    if file is None or file.filename == "":
+        flash("Choose a CSV or Excel file first.", "danger")
+        return back_to_list
+    if not file.filename.lower().endswith(ALLOWED_ENDINGS):
+        flash("Only .csv and .xlsx files can be uploaded (for an old .xls file use Save As .xlsx in Excel).", "danger")
+        return back_to_list
+
+    saved, problems = import_file(record_type, file.filename, file.read())
+    if problems:
         db.session.rollback()
-        flash("Upload rejected - nothing was saved. Fix these problems and upload again:\n" + "\n".join(errors),
-              "danger")
+        flash("Nothing was saved. Correct these problems and upload the file again:", "danger")
+        for problem in problems:
+            flash(problem, "danger")
     else:
-        log_action("IMPORT_CSV", f"{saved} {entity.title.lower()} from {file.filename}")
+        log_action("IMPORT", f"{saved} {record_type.title.lower()} from {file.filename}")
         db.session.commit()
-        flash(f"Imported {saved} {entity.title.lower()} from {file.filename}.", "success")
-    return back
+        flash(f"{saved} {record_type.title.lower()} imported from {file.filename}.", "success")
+    return back_to_list
 
 
 @bp.route("/<entity_key>/template.csv")
 @admin_required
-def template(entity_key):
-    entity = get_entity(entity_key)
-    return Response(template_csv(entity), mimetype="text/csv",
-                    headers={"Content-Disposition": f"attachment; filename={entity.key}_template.csv"})
+def download_template(entity_key):
+    record_type = find_type(entity_key)
+    return Response(template_csv(record_type), mimetype="text/csv",
+                    headers={"Content-Disposition": f"attachment; filename={entity_key}_template.csv"})
 
 
 # ---------------------------------------------------------------- faculty availability
 @bp.route("/faculty/<faculty_id>/unavailability", methods=["GET", "POST"])
 @admin_required
 def unavailability(faculty_id):
-    fac = db.get_or_404(Faculty, faculty_id)
-    sessions = ExamSession.query.order_by(ExamSession.code).all()
+    """Dates (whole day or one session) on which this faculty member must not get a duty (SRS: availability)."""
+    member = db.get_or_404(Faculty, faculty_id)
+    sessions = ExamSession.query.order_by(ExamSession.start_time).all()
+
     if request.method == "POST":
-        try:
-            day = date.fromisoformat(request.form.get("date", ""))
-        except ValueError:
+        day = read_date(request.form.get("date"))
+        session_code = request.form.get("session_code") or None          # empty = whole day
+        if day is None:
             flash("Choose a valid date.", "danger")
-            return redirect(url_for("data.unavailability", faculty_id=faculty_id))
-        code = request.form.get("session_code", "") or None
-        if code and code not in {s.code for s in sessions}:
+        elif session_code and session_code not in [s.code for s in sessions]:
             flash("Unknown session.", "danger")
-        elif FacultyUnavailability.query.filter_by(faculty_id=faculty_id, date=day, session_code=code).first():
-            flash("That unavailability is already recorded.", "warning")
+        elif FacultyUnavailability.query.filter_by(faculty_id=faculty_id, date=day,
+                                                   session_code=session_code).first():
+            flash("This date is already in the list.", "warning")
         else:
-            db.session.add(FacultyUnavailability(faculty_id=faculty_id, date=day, session_code=code))
-            log_action("ADD_UNAVAILABILITY", f"{faculty_id} on {day} {code or 'all day'}")
+            db.session.add(FacultyUnavailability(faculty_id=faculty_id, date=day, session_code=session_code))
+            log_action("ADD_UNAVAILABILITY", f"{faculty_id} on {day} {session_code or 'whole day'}")
             db.session.commit()
-            flash("Unavailability added.", "success")
+            flash("Unavailable date added.", "success")
         return redirect(url_for("data.unavailability", faculty_id=faculty_id))
-    slots = sorted(fac.unavailability, key=lambda u: (u.date, u.session_code or ""))
-    return render_template("data_unavailability.html", fac=fac, slots=slots, sessions=sessions)
+
+    dates = sorted(member.unavailability, key=lambda u: (u.date, u.session_code or ""))
+    return render_template("data_unavailability.html", member=member, dates=dates, sessions=sessions)
 
 
-@bp.route("/faculty/<faculty_id>/unavailability/<int:slot_id>/delete", methods=["POST"])
+@bp.route("/faculty/<faculty_id>/unavailability/<int:entry_id>/delete", methods=["POST"])
 @admin_required
-def unavailability_delete(faculty_id, slot_id):
-    slot = db.get_or_404(FacultyUnavailability, slot_id)
-    if slot.faculty_id != faculty_id:
+def unavailability_delete(faculty_id, entry_id):
+    entry = db.get_or_404(FacultyUnavailability, entry_id)
+    if entry.faculty_id != faculty_id:
         abort(404)
-    db.session.delete(slot)
-    log_action("REMOVE_UNAVAILABILITY", f"{faculty_id} on {slot.date}")
+    db.session.delete(entry)
+    log_action("REMOVE_UNAVAILABILITY", f"{faculty_id} on {entry.date}")
     db.session.commit()
-    flash("Unavailability removed.", "success")
+    flash("Unavailable date removed.", "success")
     return redirect(url_for("data.unavailability", faculty_id=faculty_id))
