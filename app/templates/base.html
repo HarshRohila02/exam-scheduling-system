@@ -76,6 +76,9 @@
 </nav>
 {% endif %}
 
+{# shown by the script below while the browser has no network connection #}
+<div id="connection-alert" class="d-none d-print-none" role="alert"></div>
+
 <main class="{% if session.get('role') == 'STUDENT' %}container py-4{% else %}container-fluid py-4 px-4{% endif %}">
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
@@ -89,6 +92,21 @@
 </main>
 
 <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script>
+  // Tell the user when the connection drops or comes back, so a failed page load is not a mystery.
+  (function () {
+    var box = document.getElementById('connection-alert');
+    function show(online) {
+      box.className = 'alert text-center rounded-0 mb-0 d-print-none alert-' + (online ? 'success' : 'warning');
+      box.textContent = online ? 'You are back online. Refresh the page to see the latest information.'
+                               : 'You are offline. Check your internet connection - the information on this page may be out of date.';
+      if (online) { setTimeout(function () { box.className = 'd-none'; }, 5000); }
+    }
+    window.addEventListener('offline', function () { show(false); });
+    window.addEventListener('online', function () { show(true); });
+    if (!navigator.onLine) { show(false); }
+  })();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>
