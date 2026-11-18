@@ -7,9 +7,9 @@
   {# Bootstrap 5.3.3 is kept inside the project (app/static/vendor) so pages look right without internet access #}
   <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/student.css') }}" rel="stylesheet">
 </head>
-<body class="{% block body_class %}{{ 'theme-student' if session.get('role') == 'STUDENT' }}{% endblock %}">
+<body class="{% block body_class %}{% endblock %}">
+{% block nav %}
 {% if session.get('role') == 'ADMIN' %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
@@ -47,36 +47,45 @@
 </nav>
 {% elif session.get('role') == 'STUDENT' %}
 {% set here = request.endpoint %}
-<nav class="navbar navbar-expand-md student-nav sticky-top d-print-none">
-  <div class="container">
-    <a class="navbar-brand student-brand" href="{{ url_for('student.dashboard') }}">
-      <span class="brand-icon">🎓</span> Exam<span class="brand-accent">Portal</span>
-    </a>
-    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#nav"
-            aria-label="Open menu">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark d-print-none">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('student.dashboard') }}">Exam Scheduling | Student</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>
     <div class="collapse navbar-collapse" id="nav">
-      <ul class="navbar-nav me-auto gap-md-1 mt-2 mt-md-0">
-        <li class="nav-item"><a class="nav-link pill {{ 'active' if here == 'student.dashboard' }}" href="{{ url_for('student.dashboard') }}">🏠 Home</a></li>
-        <li class="nav-item"><a class="nav-link pill {{ 'active' if here in ('student.timetable', 'student.exam') }}" href="{{ url_for('student.timetable') }}">📅 My Timetable</a></li>
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link {{ 'active' if here == 'student.dashboard' }}" href="{{ url_for('student.dashboard') }}">Dashboard</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if here in ('student.timetable', 'student.exam') }}" href="{{ url_for('student.timetable') }}">My Timetable</a></li>
         <li class="nav-item">
-          <a class="nav-link pill {{ 'active' if here == 'student.notifications' }}" href="{{ url_for('student.notifications') }}">🔔 Notifications
-            {% if student_unread %}<span class="badge rounded-pill bg-danger">{{ student_unread }}</span>{% endif %}</a>
+          <a class="nav-link {{ 'active' if here == 'student.notifications' }}" href="{{ url_for('student.notifications') }}">Notifications
+            {% if student_unread %}<span class="badge text-bg-danger">{{ student_unread }}</span>{% endif %}</a>
         </li>
-        <li class="nav-item"><a class="nav-link pill {{ 'active' if here == 'student.change_password' }}" href="{{ url_for('student.change_password') }}">🔒 Password</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if here == 'student.change_password' }}" href="{{ url_for('student.change_password') }}">Password</a></li>
       </ul>
-      <form method="post" action="{{ url_for('auth.logout') }}" class="d-flex align-items-center gap-2 my-2 my-md-0">
+      <form method="post" action="{{ url_for('auth.logout') }}" class="d-flex">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <span class="avatar-chip">{{ session.get('username') }}</span>
-        <button class="btn btn-sm btn-soft rounded-pill px-3">Log out</button>
+        <span class="navbar-text me-3">{{ session.get('username') }}</span>
+        <button class="btn btn-outline-light btn-sm">Log out</button>
       </form>
     </div>
   </div>
 </nav>
+{% elif not session.get('role') %}
+{# not logged in (login page): just the title, no menu #}
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid">
+    <span class="navbar-brand mb-0">Exam Scheduling System</span>
+  </div>
+</nav>
 {% endif %}
+{% endblock %}
 
-<main class="{% if session.get('role') == 'STUDENT' %}container py-4{% else %}container-fluid py-4 px-4{% endif %}">
+{# shown by the script below while the browser has no network connection #}
+<div id="connection-alert" class="d-none d-print-none" role="alert"></div>
+
+<main class="{% block main_class %}container-fluid py-4 px-4{% endblock %}">
+  {% block flashes %}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
       <div class="alert alert-{{ category }} alert-dismissible fade show flash" style="white-space: pre-line">
@@ -85,10 +94,26 @@
       </div>
     {% endfor %}
   {% endwith %}
+  {% endblock %}
   {% block content %}{% endblock %}
 </main>
 
 <script src="{{ url_for('static', filename='vendor/bootstrap/bootstrap.bundle.min.js') }}"></script>
+<script>
+  // Tell the user when the connection drops or comes back, so a failed page load is not a mystery.
+  (function () {
+    var box = document.getElementById('connection-alert');
+    function show(online) {
+      box.className = 'alert text-center rounded-0 mb-0 d-print-none alert-' + (online ? 'success' : 'warning');
+      box.textContent = online ? 'You are back online. Refresh the page to see the latest information.'
+                               : 'You are offline. Check your internet connection - the information on this page may be out of date.';
+      if (online) { setTimeout(function () { box.className = 'd-none'; }, 5000); }
+    }
+    window.addEventListener('offline', function () { show(false); });
+    window.addEventListener('online', function () { show(true); });
+    if (!navigator.onLine) { show(false); }
+  })();
+</script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

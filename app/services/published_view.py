@@ -5,8 +5,8 @@ timetable tables themselves, so the rule "nothing is visible until the admin pub
 """
 from typing import Dict, List
 
-from app.models import (Course, ExamSession, InvigilationDuty, Notification, SeatAssignment, Timetable,
-                        TimetableEntry)
+from app.models import (Course, ExamSession, InvigilationDuty, Notification, Registration, SeatAssignment,
+                        Timetable, TimetableEntry)
 from app.scheduler.problem import NotPublishedError
 
 
@@ -31,16 +31,25 @@ def _lookups():
 
 
 def get_student_exams(student_id: str) -> List[Dict]:
-    """The logged-in student's own exams with room and seat, in date order."""
+    """The student's own exams, in date order. Built from their REGISTRATIONS, so an exam is listed even when
+    no seat has been assigned yet (room and seat are then None and the page says so)."""
     timetable = current_published()
     sessions, courses = _lookups()
-    # ask the database for this student's seats only (not every seat of the timetable)
-    seats = (SeatAssignment.query.join(TimetableEntry)
-             .filter(TimetableEntry.timetable_id == timetable.id, SeatAssignment.student_id == student_id))
+    entries = {e.course_code: e for e in timetable.entries}
+    # this student's seats only (not every seat of the timetable), keyed by exam
+    seats = {s.entry_id: s for s in SeatAssignment.query.join(TimetableEntry).filter(
+        TimetableEntry.timetable_id == timetable.id, SeatAssignment.student_id == student_id)}
     rows = []
-    for seat in seats:
-        row = _exam_details(seat.entry, sessions, courses)
-        row.update(room=seat.room_id, seat=seat.seat_no, exam_type=seat.exam_type)
+    for registration in Registration.query.filter_by(student_id=student_id):
+        entry = entries.get(registration.course_code)
+        if entry is None:                       # registered, but the course has no slot in this timetable
+            continue
+        seat = seats.get(entry.id)
+        row = _exam_details(entry, sessions, courses)
+        course = courses.get(entry.course_code)
+        row.update(room=seat.room_id if seat else None, seat=seat.seat_no if seat else None,
+                   exam_type=seat.exam_type if seat else registration.exam_type,
+                   instructions=(course.exam_instructions or "").strip() if course else "")
         rows.append(row)
     return sorted(rows, key=lambda r: (r["date"], r["start_time"]))
 

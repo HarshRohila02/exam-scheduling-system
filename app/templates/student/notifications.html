@@ -1,27 +1,26 @@
 {% extends "base.html" %}
 {% block title %}Notifications{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-  <h3 class="page-title mb-0">🔔 Notifications</h3>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <h3 class="mb-0">Notifications {% if student_unread %}<span class="badge text-bg-danger">{{ student_unread }}</span>{% endif %}</h3>
   {% if student_unread %}
   <form method="post" action="{{ url_for('student.mark_read') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <button class="btn btn-soft btn-sm rounded-pill px-3">✔️ Mark all as read</button>
+    <button class="btn btn-outline-secondary">Mark all as read</button>
   </form>
   {% endif %}
 </div>
-<div class="soft-card">
+<div class="card shadow-sm"><div class="card-body">
+  <ul class="list-group list-group-flush">
   {% for note in notifications %}
-    <div class="note-row {{ 'is-unread' if not note.is_read }}">
-      <div class="note-dot"></div>
-      <div>
-        {% if not note.is_read %}<span class="tag tag-today me-1">New</span>{% endif %}
-        {{ note.message }}
-        <div class="small-muted">{{ note.created_at.strftime('%d %b %Y, %H:%M') }}</div>
-      </div>
-    </div>
+    <li class="list-group-item px-0">
+      {% if not note.is_read %}<span class="badge text-bg-primary">New</span>{% endif %}
+      {{ note.message }}
+      <div class="small-muted">{{ note.created_at.strftime('%d %b %Y, %H:%M') }}</div>
+    </li>
   {% else %}
-    <div class="empty-state small-empty"><div class="empty-emoji">💤</div><p class="mb-0">No notifications yet.</p></div>
+    <li class="list-group-item px-0 text-muted text-center py-4">No notifications yet.</li>
   {% endfor %}
-</div>
+  </ul>
+</div></div>
 {% endblock %}

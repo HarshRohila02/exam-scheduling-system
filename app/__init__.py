@@ -5,6 +5,7 @@ from app.auth import csrf_token, ensure_admin_user
 from app.config import Config
 from app.extensions import db
 from app.services.constraint_versions import ensure_defaults
+from app.services.schema_upgrade import add_missing_columns
 
 
 def create_app(test_config=None):
@@ -30,6 +31,7 @@ def create_app(test_config=None):
 
     with app.app_context():
         db.create_all()
+        add_missing_columns()          # databases made before a column existed get it added
         ensure_defaults()
     ensure_admin_user(app)
     return app

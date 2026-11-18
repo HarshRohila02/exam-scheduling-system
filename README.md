@@ -51,7 +51,7 @@ No Docker? Put `DATABASE_URL=sqlite:///aemss.db` in `.env` and skip the `docker 
 
 ## Student Portal (SRS 3.2.7 - 3.2.8)
 
-Code: `app/routes/student.py`, `app/templates/student/`, `app/services/student_accounts.py`, tests in `tests/test_student_portal.py`.
+Code: `app/routes/student.py`, `app/templates/student/`, `app/services/student_accounts.py`, tests in `tests/test_student_portal.py` and `tests/test_student_portal_cases.py` (TC01-TC32, see HANDOFF.md section 8).
 
 | Page | What the student sees |
 |---|---|
@@ -71,12 +71,20 @@ Code: `app/routes/student.py`, `app/templates/student/`, `app/services/student_a
 - **Demo and tests:** `python seed.py` instead gives every sample student the same `STUDENT_DEFAULT_PASSWORD` from `.env`.
 - **Own data only (SRS 3.6):** the enrollment number always comes from the login session, never from the address. Opening another
   course's exam page gives 404; admin pages send a student back to the login page, and student pages do the same for the admin.
+- **Seat not assigned yet:** the list is built from the student's registrations, so an exam with no seat is still shown, with
+  "Seating information not yet available".
+- **Instructions per course:** the admin types them on the course (*Data > Courses > Edit*, or the `exam_instructions` CSV column).
+  They show on that exam's card and detail page, next to the timetable-wide text from the Publish dialog.
+- **Fresh pages, errors, offline:** student pages are sent with `Cache-Control: no-store`; a 404 or a crash shows the normal error
+  page inside the student layout; a banner warns when the browser goes offline.
 - **Nothing before publishing:** until a timetable is `PUBLISHED` (or after it is archived) the pages say "not published yet".
 - Exams before today are shown as *Over*; the sample exam week is 2-7 Nov 2026, so move the exam period forward on the
   University Calendar page (and generate and publish again) to see an upcoming "next exam" on the dashboard.
-- **Look:** the login and student pages use `app/static/css/student.css` (pastel colours, rounded cards). Bootstrap 5.3.3 is
+- **Look:** the login and student pages use the same layout, navbar ("Exam Scheduling | Student"), cards, tables and buttons as the
+  Admin Portal (`app/static/css/style.css`, which also holds the small-screen and print rules). Bootstrap 5.3.3 is
   kept in `app/static/vendor/bootstrap/` instead of loading from a CDN, so every page is styled even without internet access.
 - **Existing databases:** `User` has a new column `must_change_password`. Run `python seed.py --reset` once (or add the column by hand).
+  `Course.exam_instructions` is added automatically at startup (`app/services/schema_upgrade.py`), so nobody has to reset their database for it.
 
 ## How the CSP model works (SRS 3.2.4)
 
