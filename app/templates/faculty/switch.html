@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Switch user{% endblock %}
+{% block content %}
+<section class="card shadow-sm mx-auto" style="max-width: 32rem">
+  <div class="card-body">
+    <h1 class="h4">Switch user</h1>
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="list-group list-group-flush mb-3">
+        {% for person in people %}
+        <button class="list-group-item list-group-item-action" name="faculty_id" value="{{ person.faculty_id }}">
+          {{ person.name }} ({{ person.faculty_id }})
+          {% if session.username == person.faculty_id %}<span class="badge text-bg-secondary float-end">Current</span>{% endif %}
+        </button>
+        {% endfor %}
+      </div>
+    </form>
+    <a href="{{ url_for('auth.login', portal='faculty') }}">Log in another faculty account</a>
+  </div>
+</section>
+{% endblock %}

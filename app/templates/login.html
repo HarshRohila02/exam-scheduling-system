@@ -23,13 +23,25 @@
       <p class="text-muted mb-3">Automated Examination Management and Scheduling System</p>
       <div class="hint-chips mb-4">
         <span class="chip chip-student">🎒 Students: log in with your enrollment number, e.g. S001</span>
+        {% if faculty_login %}
+        <a class="chip chip-staff" href="{{ url_for('auth.login') }}">Student or Exam Cell login</a>
+        {% else %}
+        <a class="chip chip-staff" href="{{ url_for('auth.login', portal='faculty') }}">Select faculty account</a>
+        {% endif %}
         <span class="chip chip-staff">🧑‍💼 Exam staff: your admin username</span>
       </div>
       <form method="post" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-floating mb-3">
+          {% if faculty_login %}
+          <select class="form-select" id="username" name="username" autofocus>
+            {% for person in people %}<option value="{{ person.faculty_id }}" {{ 'selected' if request.form.get('username') == person.faculty_id }}>{{ person.name }} ({{ person.faculty_id }})</option>{% endfor %}
+          </select>
+          <label for="username">Select faculty</label>
+          {% else %}
           <input class="form-control" id="username" name="username" placeholder="Username" autocomplete="username" autofocus>
           <label for="username">Username or enrollment number</label>
+          {% endif %}
         </div>
         <div class="form-floating mb-4 position-relative">
           <input class="form-control pe-5" id="password" name="password" type="password" placeholder="Password"
@@ -39,8 +51,7 @@
         </div>
         <button class="btn btn-cute w-100 py-2">Log in</button>
       </form>
-      <p class="small-muted text-center mt-4 mb-0">First time here? Use the temporary password from the exam cell;
-        you'll choose your own right after.</p>
+      <p class="small-muted text-center mt-4 mb-0">Use the password provided by the Exam Cell for your first login.</p>
     </div>
   </div>
 </div>

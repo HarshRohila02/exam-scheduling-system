@@ -5,7 +5,9 @@ their own data in the Student Portal, and every schedule-affecting action is wri
 
 How a login is linked to a person: a student's username is their enrollment number (User.username == Student.student_id).
 """
+import hashlib
 import secrets
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import (Blueprint, abort, current_app, flash, redirect, render_template,
@@ -13,7 +15,7 @@ from flask import (Blueprint, abort, current_app, flash, redirect, render_templa
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.extensions import db
-from app.models import AuditLog, Student, User
+from app.models import AuditLog, Faculty, FacultyBrowserLogin, Student, User
 
 bp = Blueprint("auth", __name__)
 
@@ -86,7 +88,7 @@ def check_csrf():
 # ---------------------------------------------------------------- login / logout
 # Where each role lands after logging in, and which addresses it may be sent back to (?next=...).
 # The Faculty Portal adds "FACULTY" here.
-HOME_PAGES = {"ADMIN": ("dashboard.index", "/"), "STUDENT": ("student.dashboard", "/student/")}
+HOME_PAGES = {"FACULTY": ("faculty.dashboard", "/faculty/"), "ADMIN": ("dashboard.index", "/"), "STUDENT": ("student.dashboard", "/student/")}
 
 
 def _find_user(username):
@@ -94,36 +96,119 @@ def _find_user(username):
     return User.query.filter_by(username=username).first() or User.query.filter_by(username=username.upper()).first()
 
 
+def remember_faculty(user, browser):
+    db.session.merge(FacultyBrowserLogin(
+        browser=browser, user_id=user.id,
+        credential_version=hashlib.sha256(user.password_hash.encode()).hexdigest(),
+        expires_at=datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=31)))
+
+
+def signed_in_faculty(browser):
+    if not browser:
+        return []
+    rows = (db.session.query(User, Faculty, FacultyBrowserLogin)
+            .join(Faculty, Faculty.faculty_id == User.username)
+            .join(FacultyBrowserLogin, FacultyBrowserLogin.user_id == User.id)
+            .filter(FacultyBrowserLogin.browser == browser, User.role == "FACULTY",
+                    FacultyBrowserLogin.expires_at > datetime.now(timezone.utc).replace(tzinfo=None))
+            .order_by(Faculty.name).all())
+    return [(user, person) for user, person, grant in rows
+            if grant.credential_version == hashlib.sha256(user.password_hash.encode()).hexdigest()]
+
+
+def activate_user(user, browser=None):
+    session.clear()
+    session["username"], session["role"] = user.username, user.role
+    if browser:
+        session["faculty_browser"] = browser
+    if user.must_change_password:
+        session["must_change_password"] = True
+
+
+@bp.route("/switch-faculty", methods=["GET", "POST"])
+def switch_faculty():
+    browser = session.get("faculty_browser")
+    # Keep a faculty session opened before the switcher was introduced.
+    if not browser and session.get("role") == "FACULTY":
+        user = _find_user(current_username())
+        if user and user.role == "FACULTY" and db.session.get(Faculty, user.username):
+            browser = secrets.token_hex(32)
+            remember_faculty(user, browser)
+            db.session.commit()
+            session["faculty_browser"] = browser
+    accounts = signed_in_faculty(browser)
+    if request.method == "POST":
+        selected = request.form.get("faculty_id")
+        user = next((user for user, _ in accounts if user.username == selected), None)
+        if user is None:
+            abort(403)
+        activate_user(user, browser)
+        log_action("SWITCH_USER", "Switched to signed-in faculty account")
+        db.session.commit()
+        return redirect(url_for("faculty.dashboard"))
+    if not accounts:
+        return redirect(url_for("auth.login", portal="faculty"))
+    return render_template("faculty/switch.html", people=[person for _, person in accounts])
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    faculty_login = request.args.get("portal") == "faculty"
+    template = "faculty/login.html" if faculty_login else "login.html"
+    people = (Faculty.query.join(User, User.username == Faculty.faculty_id)
+              .filter(User.role == "FACULTY").order_by(Faculty.name).all()) if faculty_login else []
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if not username or not password:
+        if username and not password:
+            flash("Please enter password", "danger")
+        elif username and len(password) < 3:
+            flash("Password must be at least 3 characters", "danger")
+        elif not username:
             flash("Enter both username and password.", "danger")
         else:
             user = _find_user(username)
-            if user and user.role in HOME_PAGES and check_password_hash(user.password_hash, password):
+            if (user and user.role in HOME_PAGES and (not faculty_login or user.role == "FACULTY")
+                    and check_password_hash(user.password_hash, password)):
                 # a student account whose student record was deleted by the admin must not log in
                 if user.role == "STUDENT" and db.session.get(Student, user.username) is None:
                     flash("No student record exists for this enrollment number. Contact the examination cell.", "danger")
-                    return render_template("login.html")
-                session.clear()
-                session["username"], session["role"] = user.username, user.role
-                if user.must_change_password:
-                    session["must_change_password"] = True
+                    return render_template(template, faculty_login=faculty_login, people=people)
+                if user.role == "FACULTY" and db.session.get(Faculty, user.username) is None:
+                    flash("Faculty record unavailable. Contact the examination cell.", "danger")
+                    return render_template(template, faculty_login=faculty_login, people=people)
+                browser = session.get("faculty_browser")
+                if user.role == "FACULTY":
+                    browser = browser or secrets.token_hex(32)
+                    remember_faculty(user, browser)
+                elif browser:
+                    FacultyBrowserLogin.query.filter_by(browser=browser).delete()
+                    browser = None
+                activate_user(user, browser)
                 log_action("LOGIN", f"{user.role.title()} logged in")
                 db.session.commit()
                 home, allowed_prefix = HOME_PAGES[user.role]
-                nxt = request.args.get("next", "")
+                nxt = "" if user.role == "FACULTY" else request.args.get("next", "")
                 safe = nxt.startswith(allowed_prefix) and not nxt.startswith("//")
                 return redirect(nxt if safe else url_for(home))
-            flash("Wrong username or password.", "danger")
-    return render_template("login.html")
+            flash("Invalid password" if user and user.role == "FACULTY" else "Wrong username or password.", "danger")
+    return render_template(template, faculty_login=faculty_login, people=people)
 
 
 @bp.route("/logout", methods=["POST"])
 def logout():
+    switch_faculty = session.get("role") == "FACULTY" and request.form.get("switch") == "faculty"
+    browser = session.get("faculty_browser")
+    if browser and session.get("role") == "FACULTY":
+        user = _find_user(current_username())
+        if user:
+            FacultyBrowserLogin.query.filter_by(browser=browser, user_id=user.id).delete()
+        db.session.commit()
     session.clear()
+    if signed_in_faculty(browser):
+        session["faculty_browser"] = browser
+        return redirect(url_for("auth.switch_faculty"))
+    if switch_faculty:
+        return redirect(url_for("auth.login", portal="faculty"))
     flash("You have been logged out.", "info")
     return redirect(url_for("auth.login"))

@@ -8,8 +8,10 @@
   <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/student.css') }}" rel="stylesheet">
+  {% block page_styles %}{% endblock %}
 </head>
 <body class="{% block body_class %}{{ 'theme-student' if session.get('role') == 'STUDENT' }}{% endblock %}">
+{% block page_header %}{% endblock %}
 {% if session.get('role') == 'ADMIN' %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
@@ -35,11 +37,32 @@
         <li class="nav-item"><a class="nav-link" href="{{ url_for('calendar.index') }}">University Calendar</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('constraints.index') }}">Constraints</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('timetable.index') }}">Timetable</a></li>
+        <li class="nav-item"><a class="nav-link" href="{{ url_for('faculty.cell') }}">Faculty requests {% if cell_unread %}<span class="badge bg-danger">{{ cell_unread }}</span>{% endif %}</a></li>
         <li class="nav-item"><a class="nav-link" href="{{ url_for('audit.index') }}">Audit Log</a></li>
       </ul>
       <form method="post" action="{{ url_for('auth.logout') }}" class="d-flex">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <span class="navbar-text me-3">{{ session.get('username') }}</span>
+        <button class="btn btn-outline-light btn-sm">Log out</button>
+      </form>
+    </div>
+  </div>
+</nav>
+{% elif session.get('role') == 'FACULTY' %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark d-print-none">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="{{ url_for('faculty.dashboard') }}">Exam Scheduling | Faculty</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#faculty-nav" aria-label="Toggle navigation" aria-controls="faculty-nav" aria-expanded="false"><span class="navbar-toggler-icon"></span></button>
+    <div class="collapse navbar-collapse" id="faculty-nav">
+      <ul class="navbar-nav me-auto">
+      {% for endpoint, label, count in [('dashboard','Dashboard',0),('timetable','My Timetable',0),('swaps','Duty Swaps',faculty_pending),('notifications','Notifications',faculty_unread),('password','Password',0)] %}
+        <li class="nav-item"><a class="nav-link {{ 'active' if request.endpoint == 'faculty.' ~ endpoint }}" href="{{ url_for('faculty.' ~ endpoint) }}">{{ label }}{% if count %} <span class="badge bg-danger">{{ count }}</span>{% endif %}</a></li>
+      {% endfor %}
+      </ul>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="d-flex">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <span class="navbar-text me-3">{{ session.username }}</span>
+        <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('auth.switch_faculty') }}">Switch user</a>
         <button class="btn btn-outline-light btn-sm">Log out</button>
       </form>
     </div>
@@ -77,14 +100,7 @@
 {% endif %}
 
 <main class="{% if session.get('role') == 'STUDENT' %}container py-4{% else %}container-fluid py-4 px-4{% endif %}">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }} alert-dismissible fade show flash" style="white-space: pre-line">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
+  {% block notifications %}{% include "_flash_messages.html" %}{% endblock %}
   {% block content %}{% endblock %}
 </main>
 

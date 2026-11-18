@@ -19,6 +19,7 @@ from app.scheduler.problem import (ExamInput, ExamPlacement, FacultyInput, Infea
                                    InputValidationError, RoomInput, Rules, SessionInput, Slot, build_slots)
 from app.scheduler.solver import solve
 from app.scheduler.validator import validate_timetable
+from app.services.duty_swaps import close_requests
 from app.services.constraint_versions import get_active_version
 
 
@@ -234,7 +235,8 @@ def publish_timetable(timetable: Timetable, instructions: str) -> Timetable:
     if claimed != 1:
         db.session.rollback()
         raise ValueError("This timetable was published or changed a moment ago. Reload the page")
-    for old in Timetable.query.filter(Timetable.status == "PUBLISHED", Timetable.id != timetable.id).all():
+    for old in Timetable.query.filter(Timetable.status == "PUBLISHED", Timetable.id != timetable.id).with_for_update().all():
+        close_requests(old)
         old.status = "ARCHIVED"
     db.session.refresh(timetable)
     timetable.instructions = instructions.strip()
@@ -265,8 +267,10 @@ def _notify(timetable: Timetable) -> None:
 
 
 def archive_timetable(timetable: Timetable) -> None:
+    timetable = Timetable.query.filter_by(id=timetable.id).with_for_update().populate_existing().one()
     if timetable.status != "PUBLISHED":
         raise ValueError("Only a published timetable can be archived")
+    close_requests(timetable)
     timetable.status = "ARCHIVED"
     log_action("ARCHIVE_TIMETABLE", f"Timetable {timetable.id} archived")
     db.session.commit()

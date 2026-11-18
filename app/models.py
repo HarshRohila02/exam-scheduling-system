@@ -198,3 +198,23 @@ class AuditLog(db.Model):
     username = db.Column(db.String(50))
     action = db.Column(db.String(50), nullable=False)
     details = db.Column(db.String(255))
+
+
+class DutySwap(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    duty_id = db.Column(db.Integer, db.ForeignKey("invigilation_duty.id"), nullable=False)
+    duty = db.relationship("InvigilationDuty")
+    sender = db.Column(db.String(20), nullable=False)
+    recipient = db.Column(db.String(20), nullable=False)
+    reason = db.Column(db.String(500), nullable=False)
+    status = db.Column(db.String(12), default="Pending", nullable=False)
+    # Only an open request reserves a duty. Closed requests retain their history.
+    pending_duty = db.Column(db.Integer, unique=True)
+
+
+class FacultyBrowserLogin(db.Model):
+    """A faculty account authenticated in one browser session."""
+    browser = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, primary_key=True)
+    credential_version = db.Column(db.String(64), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)

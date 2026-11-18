@@ -13,4 +13,5 @@ class Config:
     ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
     # first password of every student account (python seed.py); students must change it at first login
     STUDENT_DEFAULT_PASSWORD = os.getenv("STUDENT_DEFAULT_PASSWORD", "student123")
+    FACULTY_DEFAULT_PASSWORD = os.getenv("FACULTY_DEFAULT_PASSWORD", "faculty123")
     MAX_CONTENT_LENGTH = 2 * 1024 * 1024   # CSV uploads up to 2 MB

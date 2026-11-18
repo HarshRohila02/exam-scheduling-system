@@ -1,0 +1,16 @@
+{% macro requests(rows, decisions=false) %}
+<div class="list-group list-group-flush">
+{% for s in rows %}
+<article class="list-group-item py-3">
+  <div class="d-flex justify-content-between"><strong>{{ s.duty.entry.course_code }} · Room {{ s.duty.room_id }}</strong>
+  <span class="badge text-bg-{{ {'Approved':'success','Rejected':'danger','Pending':'warning'}.get(s.status,'secondary') }}">{{ s.status|lower }}</span></div>
+  <div>{{ s.duty.entry.exam_date }} · {{ s.duty.entry.session_code }} · {{ s.sender }} → {{ s.recipient }}</div>
+  <div class="text-muted">Reason: {{ s.reason }}</div>
+  {% if decisions and s.status == 'Pending' %}
+  <div class="d-flex gap-2 mt-2">{% for action in ['approve','reject'] %}
+  <form method="post" action="{{ url_for('faculty.decide', swap_id=s.id, action=action) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn btn-sm btn-outline-{{ 'success' if action == 'approve' else 'danger' }}">{{ action|title }}</button></form>{% endfor %}</div>
+  {% endif %}
+</article>{% else %}<p class="text-muted m-0">No requests.</p>{% endfor %}</div>
+{% endmacro %}
