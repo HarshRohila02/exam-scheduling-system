@@ -6,7 +6,7 @@ Each test records what it actually saw with record("SP_TCnn", ...), which ends u
 import re
 import sqlite3
 import time
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import func
 
@@ -41,10 +41,11 @@ def students_with_two_exams():
             .having(func.count() == 2).order_by(Registration.student_id)]
 
 
-def publish_with_moved_exam(admin, roll, course):
+def publish_with_moved_exam(admin, roll, course, avoid=()):
     """The admin generates a new draft, moves one course's exam to a different day (editing the draft directly),
-    and publishes it. Returns (timetable, old_date, new_date). Only a move that still passes the validator is
-    used, because publishing re-checks the timetable."""
+    and publishes it. Returns (timetable, old_date, new_date). `avoid` lists days that must not be chosen (the day
+    the student saw in the earlier publication, because the solver may place the course elsewhere in a new draft).
+    Only a move that still passes the validator is used, because publishing re-checks the timetable."""
     admin.post("/timetable/generate")
     draft = Timetable.query.order_by(Timetable.id.desc()).first()
     entry = next(e for e in draft.entries if e.course_code == course)
@@ -55,7 +56,8 @@ def publish_with_moved_exam(admin, roll, course):
     calendar = ExamCalendar.query.one()
     day = calendar.start_date
     while day <= calendar.end_date:
-        if day != old and day not in others and (day, entry.session_code) not in taken and day.weekday() != 6:
+        if day != old and day not in avoid and day not in others and (day, entry.session_code) not in taken \
+                and day.weekday() != 6:
             entry.exam_date = day
             db.session.commit()
             if not validate_saved_timetable(draft):
@@ -66,6 +68,11 @@ def publish_with_moved_exam(admin, roll, course):
             db.session.commit()
         day += timedelta(days=1)
     raise AssertionError("no valid new date found for the exam")
+
+
+def course_row(page, course):
+    """The timetable row of one course (so another exam on the same day cannot confuse a check)."""
+    return next(row for row in cards(page) if f"student/exam/{course}" in row)
 
 
 def shown(day):
@@ -205,16 +212,17 @@ def test_SP_TC11_exams_are_in_chronological_order(client, sample):
 
 def test_SP_TC12_revised_timetable_shows_latest_published_dates(client, sample):
     first = publish(client)
-    course = get_student_exams("S001")[0]["course"]
+    exam = get_student_exams("S001")[0]
+    course, seen = exam["course"], date.fromisoformat(exam["date"])         # the date the student saw first
     browser = student(sample)                                                # stays logged in across the republish
-    old_page = page_of(browser, "/student/timetable")
-    revised, old, new = publish_with_moved_exam(client, "S001", course)      # the admin publishes a revised date
-    assert db.session.get(Timetable, first.id).status == "ARCHIVED" and old != new
-    assert shown(old) in old_page                                            # the student saw the old date before
-    page = page_of(browser, "/student/timetable")
-    assert shown(new) in page and shown(old) not in page
-    assert shown(new) in page_of(browser, f"/student/exam/{course}")
-    record("SP_TC12", f"{course} moved {shown(old)} -> {shown(new)}; the student page shows only the new date")
+    assert shown(seen) in course_row(page_of(browser, "/student/timetable"), course)
+    revised, _, new = publish_with_moved_exam(client, "S001", course, avoid=(seen,))   # revised date published
+    assert db.session.get(Timetable, first.id).status == "ARCHIVED" and new != seen
+    row = course_row(page_of(browser, "/student/timetable"), course)
+    assert shown(new) in row and shown(seen) not in row                      # the new date, and not the old one
+    detail = page_of(browser, f"/student/exam/{course}")
+    assert shown(new) in detail and shown(seen) not in detail
+    record("SP_TC12", f"{course} moved {shown(seen)} -> {shown(new)}; the student page shows only the new date")
 
 
 # ================================================================ room and seat (TC13 - TC16)
@@ -294,15 +302,17 @@ def test_SP_TC19_seating_stays_hidden_before_publication(client, sample):
 
 def test_SP_TC20_latest_published_schedule_is_shown(client, sample):
     first = publish(client)
-    course = get_student_exams("S001")[0]["course"]
-    latest, old, new = publish_with_moved_exam(client, "S001", course)       # a new validated version goes out
+    exam = get_student_exams("S001")[0]
+    course, seen = exam["course"], date.fromisoformat(exam["date"])
+    latest, _, new = publish_with_moved_exam(client, "S001", course, avoid=(seen,))   # a new validated version
     assert Timetable.query.filter_by(status="PUBLISHED").one().id == latest.id != first.id
     page = page_of(student(sample), "/student/timetable")
-    assert shown(new) in page and shown(old) not in page                      # the superseded schedule is gone
+    row = course_row(page, course)
+    assert shown(new) in row and shown(seen) not in row                      # the superseded schedule is gone
     seats = {s.seat_no for s in SeatAssignment.query.join(TimetableEntry)
              .filter(TimetableEntry.timetable_id == latest.id, SeatAssignment.student_id == "S001")}
     assert seats and all(seat in page for seat in seats)
-    record("SP_TC20", f"S001 sees timetable #{latest.id} ({course} on {shown(new)}), not #{first.id} ({shown(old)})")
+    record("SP_TC20", f"S001 sees timetable #{latest.id} ({course} on {shown(new)}), not #{first.id} ({shown(seen)})")
 
 
 # ================================================================ instructions (TC21 - TC24)
