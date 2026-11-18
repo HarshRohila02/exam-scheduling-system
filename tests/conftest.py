@@ -23,7 +23,7 @@ def record(tc_id, actual):
 def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
-    match = re.match(r"test_(TC\d+)", item.name)
+    match = re.match(r"test_((?:SP_)?TC\d+)", item.name)
     if match and report.when == "call" and report.failed:
         RESULTS.setdefault(match.group(1), {"actual": "", "status": "Fail"})["status"] = "Fail"
 
