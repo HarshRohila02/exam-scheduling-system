@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "faculty/_requests.html" import requests with context %}
+{% block title %}Duty Swaps{% endblock %}
+{% block content %}
+<h1 class="h3 mb-4">Duty Swaps</h1>
+<section class="card shadow-sm p-4 mb-4"><h2 class="h5">Request a duty transfer</h2>
+{% if duties %}<form method="post" class="row g-3">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label class="col-md-6">Your published duty<select required class="form-select" name="duty">{% for d in duties %}
+<option value="{{ d.duty_id }}">{{ d.course }} · {{ d.date }} {{ d.start_time }} · {{ d.room }}</option>{% endfor %}</select></label>
+<label class="col-md-6">Swap with<select class="form-select" name="recipient" required><option value="">Choose a colleague</option>
+{% for f in people %}<option value="{{ f.faculty_id }}">{{ f.name }} · {{ f.department }} ({{ f.faculty_id }})</option>{% endfor %}</select></label>
+<label class="col-12">Reason<textarea maxlength="500" name="reason" class="form-control" rows="2"></textarea></label>
+<div><button class="btn btn-primary px-4">Send request</button></div></form>
+{% else %}<p class="mb-0">A published duty is required to send a request.</p>{% endif %}</section>
+<div class="row g-3"><section class="col-md-6"><div class="card shadow-sm p-4"><h2 class="h5">Incoming requests</h2>{{ requests(incoming,true) }}</div></section>
+<section class="col-md-6"><div class="card shadow-sm p-4"><h2 class="h5">My sent requests</h2>{{ requests(sent) }}</div></section></div>
+{% endblock %}

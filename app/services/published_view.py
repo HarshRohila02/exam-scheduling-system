@@ -54,11 +54,11 @@ def get_student_exams(student_id: str) -> List[Dict]:
     return sorted(rows, key=lambda r: (r["date"], r["start_time"]))
 
 
-def get_faculty_duties(faculty_id: str) -> List[Dict]:
+def get_faculty_duties(faculty_id: str, timetable=None) -> List[Dict]:
     """The faculty member's own invigilation duties in date order.
 
     `duty_id` is the InvigilationDuty row, so a duty-swap request can point at exactly one duty."""
-    timetable = current_published()
+    timetable = timetable or current_published()
     sessions, courses = _lookups()
     duties = (InvigilationDuty.query.join(TimetableEntry)
               .filter(TimetableEntry.timetable_id == timetable.id, InvigilationDuty.faculty_id == faculty_id))

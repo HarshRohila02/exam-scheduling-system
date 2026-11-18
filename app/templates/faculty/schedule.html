@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ page }} | Faculty{% endblock %}
+{% block content %}
+<div id="personal-schedule">
+{% set dashboard = page == 'Dashboard' %}
+<h1 class="h3 mb-1">{{ 'Faculty Dashboard' if dashboard else page }}</h1>
+<p class="text-muted">{{ person.name }} · {{ person.faculty_id }} · {{ person.department }}</p>
+<div class="row g-4">
+{% if dashboard %}
+  <aside class="col-lg-5">
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h5">Duty summary</h2>
+      <ul class="list-group list-group-flush mb-3">
+        <li class="list-group-item px-0">Total duties <strong class="float-end">{{ schedules[0][1]|length if schedules else 0 }}{% if maximum is not none %} / {{ maximum }}{% endif %}</strong></li>
+        <li class="list-group-item px-0"><a href="{{ url_for('faculty.swaps') }}">Incoming requests</a> <strong class="float-end">{{ faculty_pending }}</strong></li>
+        <li class="list-group-item px-0"><a href="{{ url_for('faculty.notifications') }}">Unread notifications</a> <strong class="float-end">{{ faculty_unread }}</strong></li>
+      </ul>
+      <h2 class="h5">Next duty</h2>
+      {% if next_duty %}<p>{{ next_duty.course }} · {{ next_duty.course_name }}<br>{{ next_duty.date }} · {{ next_duty.start_time }} · Room {{ next_duty.room }}</p>
+      {% else %}<p class="text-muted">No upcoming duty scheduled.</p>{% endif %}
+      <a class="btn btn-primary w-100" href="{{ url_for('faculty.timetable') }}">View my timetable</a>
+    </div></div>
+  </aside>
+{% endif %}
+  <div class="{{ 'col-lg-7' if dashboard else 'col-12' }}">
+    {% if not dashboard %}<button class="btn btn-outline-primary btn-sm mb-3 d-print-none" onclick="window.print()">Print / Save as PDF</button>{% endif %}
+    {% if dashboard %}<h2 class="h5">All my duties</h2>{% endif %}
+    {% for table, duties in schedules %}
+    <section class="mb-4">
+      <div class="alert alert-{{ 'info' if table.status == 'PUBLISHED' else 'warning' }}">
+        <strong>{{ 'Published' if table.status == 'PUBLISHED' else 'Draft' }}:</strong> timetable #{{ table.id }}{% if table.status == 'DRAFT' %} · Awaiting publication{% endif %}
+      </div>
+      <h2 class="h5">{{ 'Published duties' if table.status == 'PUBLISHED' else 'Draft duties' }}</h2>
+      {% if duties %}
+      <div class="table-responsive"><table class="table table-sm table-striped bg-white">
+        <thead><tr><th>Date</th><th>Time</th><th>Course</th><th>Room</th></tr></thead>
+        <tbody>{% for d in duties %}<tr><td>{{ d.date }}</td><td>{{ d.start_time }}–{{ d.end_time }}</td><td>{{ d.course }} · {{ d.course_name }}</td><td>{{ d.room }}</td></tr>{% endfor %}</tbody>
+      </table></div>{% else %}<p>You have no duties on this timetable.</p>{% endif %}
+    </section>
+    {% else %}<div class="alert alert-info">Your duties will appear here when the Exam Cell generates a timetable.</div>{% endfor %}
+  </div>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Refresh the read-only duty list when returning from the Exam Cell or while it stays open.
+  let refreshing = false;
+  async function refreshDuties() {
+    if (refreshing || document.hidden) return;
+    refreshing = true;
+    try {
+      const response = await fetch(location.href, {cache: "no-store"});
+      if (!response.ok || response.redirected) return;
+      const updated = new DOMParser().parseFromString(await response.text(), "text/html");
+      const next = updated.getElementById("personal-schedule");
+      const current = document.getElementById("personal-schedule");
+      if (next && next.innerHTML !== current.innerHTML) current.replaceWith(next);
+    } catch {
+      // Keep the current timetable while offline and retry at the next interval.
+    } finally {
+      refreshing = false;
+    }
+  }
+  document.addEventListener("visibilitychange", refreshDuties);
+  window.setInterval(refreshDuties, 15000);
+</script>
+{% endblock %}

@@ -98,7 +98,7 @@
         <button class="btn btn-navy w-100">Log in</button>
       </form>
       <p class="small-muted text-center mt-3 mb-0">First time here? Use the temporary password from the exam cell; you choose your own right after.</p>
-      <div class="login-hints">Students: enrollment number, e.g. S001 &middot; Faculty: your faculty username &middot; Exam staff: your admin username</div>
+      <div class="login-hints">Students: enrollment number, e.g. S001 &middot; <a href="{{ url_for('auth.login', portal='faculty') }}">Select faculty account</a> &middot; Exam staff: your admin username</div>
     </div>
   </div>
 

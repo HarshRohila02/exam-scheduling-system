@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Faculty login{% endblock %}
+{% block body_class %}faculty-signin{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/faculty-login.css') }}">{% endblock %}
+{% block nav %}{% endblock %}
+{% block notifications %}{% endblock %}
+{% block content %}
+<div class="signin-layout">
+  <aside class="signin-info">
+    <div class="signin-brand"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="2" y="4" width="20" height="18" rx="3"/><path d="M7 2v5m10-5v5M2 10h20m-15 5 3 3 6-6"/></svg> Exam Scheduling</div>
+    <div class="signin-intro">
+      <h2>Your exams.<br>All in one place.</h2>
+      <p>Dates, rooms, seats and duties, published the moment they’re ready.</p>
+      <img src="{{ url_for('static', filename='img/faculty-login-books.png') }}" width="326" height="213" alt="">
+    </div>
+    <small>Automated Examination Management and Scheduling System</small>
+  </aside>
+  <section class="signin-form" aria-labelledby="login-heading">
+    {% include "_flash_messages.html" %}
+    <div class="signin-label">Sign in</div>
+    <h1 id="login-heading">Welcome back</h1>
+    <p class="signin-subtitle">Automated Examination Management and Scheduling System</p>
+    <form method="post" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label class="form-label" for="username">Select faculty</label>
+      <select class="form-select" id="username" name="username" autocomplete="username" autofocus required>
+        {% for person in people %}<option value="{{ person.faculty_id }}" {{ 'selected' if request.form.get('username') == person.faculty_id }}>{{ person.name }} ({{ person.faculty_id }})</option>{% endfor %}
+      </select>
+      <label class="form-label mt-3" for="password">Password</label>
+      <div class="position-relative">
+        <input class="form-control pe-5" id="password" name="password" type="password" autocomplete="current-password" required>
+        <button class="signin-eye" type="button" aria-label="Show password" aria-pressed="false" aria-controls="password">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-primary w-100 mt-4" type="submit">Log in</button>
+    </form>
+    <p class="signin-note">Use the password provided by the Exam Cell for your first login.</p>
+    <footer><a href="{{ url_for('auth.login') }}">Student or Exam Cell login</a></footer>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.querySelector('.signin-eye').addEventListener('click', function () {
+    const input = document.getElementById('password');
+    const visible = input.type === 'password';
+    input.type = visible ? 'text' : 'password';
+    this.setAttribute('aria-pressed', String(visible));
+    this.setAttribute('aria-label', visible ? 'Hide password' : 'Show password');
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,8 @@
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show flash" style="white-space: pre-line">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Dismiss message"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}

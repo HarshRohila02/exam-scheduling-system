@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "faculty/_requests.html" import requests with context %}
+{% block title %}{{ 'Faculty requests' if cell else 'Notifications' }}{% endblock %}
+{% block content %}
+<h1 class="h3 mb-4">{{ 'Faculty requests' if cell else 'Notifications' }}</h1>
+<section class="card shadow-sm p-4 mb-4"><div class="d-flex justify-content-between align-items-center">
+<h2 class="h5">{{ 'Exam Cell inbox' if cell else 'My updates' }}</h2>
+<form method="post" action="{{ url_for('faculty.cell_read' if cell else 'faculty.notifications_read') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-secondary btn-sm">Mark all read</button></form></div>
+{% for n in notes %}<article class="border-top py-2 mt-2 {{ 'bg-primary-subtle px-2' if not n.is_read }}">{% if not n.is_read %}<span class="badge bg-primary">New</span>{% endif %}
+{{ n.message }} <small class="text-muted">{{ n.created_at.strftime('%d %b %Y, %H:%M') }}</small></article>
+{% else %}<p class="text-muted mb-0">No notifications yet.</p>{% endfor %}</section>
+{% if cell %}<section class="card p-4"><h2 class="h5">Request history</h2>{{ requests(history) }}</section>{% endif %}
+{% endblock %}

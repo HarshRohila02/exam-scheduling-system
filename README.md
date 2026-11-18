@@ -5,7 +5,7 @@ and scheduling constraints (with version history); generate an exam timetable, r
 invigilation duties with a **constraint-programming solver (Google OR-Tools CP-SAT)**; validate it; publish it.
 
 This repository covers SRS sections **3.2.1 - 3.2.4** (Admin Portal) and **3.2.7 - 3.2.8** (Student Portal).
-The Faculty Portal is built separately; portals read published data through `app/services/published_view.py`.
+The integrated Faculty Portal also covers personal invigilation duties and duty transfers. Portals read schedule data through `app/services/published_view.py`.
 
 **Teammates: start with [HANDOFF.md](HANDOFF.md)** - what is done, how the pieces connect, and a starting point for each portal.
 
@@ -156,3 +156,13 @@ test-case document and writes its actual output to `tests/test_results.json`.
 Changes from the first prototype's test cases: **TC08** now means "a course larger than *all rooms combined* is reported"
 (a course bigger than one room is now split across rooms - see **TC08b**), and **TC20/TC21** were reworded (non-admin users
 cannot publish; a conflict result cannot be published).
+
+## Faculty Portal
+
+Run `python seed.py` once after applying the faculty update to an existing demo. It adds missing logins. Faculty sign in with their faculty ID (sample IDs F1–F6) and the temporary `FACULTY_DEFAULT_PASSWORD` (default `faculty123`), then land on the dashboard. The Password page lets them choose a personal password.
+
+The dashboard shows assigned duties, load, the earliest assigned duty, incoming requests and unread messages. Generated drafts appear on refresh, separately labelled from published duties. Dashboard totals refer to the published timetable when available, otherwise the draft.
+
+After publication, send a duty and reason to a colleague under **Duty Swaps**. The colleague approves or rejects the transfer. Approval revalidates the shared timetable, including availability, workload limits and simultaneous duties. The Exam Cell sees each request and decision under **Faculty requests**. Archiving or replacing a published schedule expires its pending requests. Use **My Timetable** to print or save a PDF.
+
+Run the 20 Faculty Portal acceptance cases with `python -m pytest -q tests/test_faculty_acceptance.py`. TC19 checks both outcomes. For TC08, also click Print / Save as PDF in a desktop browser to confirm the native dialog. TC01 also covers a first login with a temporary password.

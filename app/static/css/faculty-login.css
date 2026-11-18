@@ -1,0 +1,32 @@
+.faculty-signin { background: white; color: #202833; }
+.faculty-signin main { padding: 0 !important; }
+.signin-layout { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; min-height: 100svh; }
+.signin-info { background: #1b2a41; color: white; padding: clamp(28px, 5.6vh, 54px) clamp(24px, 3.65vw, 68px); display: flex; flex-direction: column; justify-content: space-between; gap: 36px; }
+.signin-brand { display: flex; align-items: center; gap: 14px; text-transform: uppercase; font-weight: 700; letter-spacing: .12em; }
+.signin-intro h2 { font-size: clamp(36px, 3.1vw, 58px); font-weight: 700; line-height: 1.15; letter-spacing: -.035em; margin: 0 0 16px; }
+.signin-intro p { max-width: 405px; color: #c2cbd6; margin: 0; line-height: 1.55; }
+.signin-intro img { display: block; max-width: 100%; width: min(326px, 26vw); height: auto; margin-top: clamp(22px, 7vh, 64px); }
+.signin-info small { color: #abb7c7; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; }
+.signin-form { width: min(396px, calc(100% - 64px)); margin: auto; padding: 40px 0; }
+.signin-form .flash { font-size: 14px; }
+.signin-label { color: #666e79; text-transform: uppercase; font-weight: 700; letter-spacing: .17em; font-size: 11px; margin-bottom: 8px; }
+.signin-form h1 { font-size: 29px; font-weight: 700; letter-spacing: -.025em; margin: 0 0 4px; }
+.signin-subtitle, .signin-note { font-size: 14px; color: #606974; line-height: 1.6; }
+.signin-subtitle { margin: 0 0 26px; }
+.signin-form .form-label { margin-bottom: 6px; }
+.signin-form .form-label::after { content: " *"; color: #ad4040; }
+.signin-form .form-control, .signin-form .form-select { min-height: 41px; border: 1px solid #bcc3cb; border-radius: 6px; }
+.signin-eye { position: absolute; inset: 0 0 0 auto; width: 48px; border: 1px solid #8b939c; background: transparent; border-radius: 0 6px 6px 0; color: #626d77; }
+.signin-eye svg { width: 20px; fill: none; stroke: currentColor; stroke-width: 1.65; }
+.signin-form .btn-primary { background: #1b2a41; border-color: #1b2a41; min-height: 40px; }
+.signin-form .btn-primary:hover { background: #2a4061; }
+.signin-note { text-align: center; margin: 16px 0; }
+.signin-form footer { text-align: center; font-size: 13px; }
+.signin-form footer a { color: #455971; }
+@media (max-width: 700px) {
+  .signin-layout { display: flex; flex-direction: column; }
+  .signin-info { gap: 20px; padding: 24px; }
+  .signin-intro h2 { font-size: 32px; }
+  .signin-intro img, .signin-info small { display: none; }
+  .signin-form { width: min(396px, calc(100% - 48px)); }
+}
