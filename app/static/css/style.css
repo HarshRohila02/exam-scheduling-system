@@ -26,11 +26,7 @@ pre.report { background: #fff; border: 1px solid #dee2e6; padding: 1rem; border-
 .login-brand svg, .login-eye { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .login-headline { font-size: 3rem; font-weight: 700; line-height: 1.15; margin-bottom: 1rem; }
 .login-lead { color: rgba(255, 255, 255, .65); max-width: 26rem; margin-bottom: 2rem; }
-.login-bars { display: flex; align-items: flex-end; gap: .9rem; }
-.login-bars span { width: 56px; border-radius: 14px; }
-.login-bars span:nth-child(1) { background: rgba(255, 255, 255, .35); }
-.login-bars span:nth-child(2) { background: #5b7db1; }
-.login-bars span:nth-child(3) { background: rgba(255, 255, 255, .9); }
+.login-illustration { display: block; max-width: 100%; height: auto; }
 .login-foot { font-size: .68rem; letter-spacing: .12em; color: rgba(255, 255, 255, .5); }
 .login-form-side { background: #fff; padding: 2rem 1.5rem; }
 .login-kicker { font-size: .72rem; font-weight: 700; letter-spacing: .14em; color: #6c757d; margin-bottom: .35rem; }

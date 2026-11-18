@@ -19,7 +19,47 @@
     <div>
       <h1 class="login-headline">Your exams.<br>All in one place.</h1>
       <p class="login-lead">Dates, rooms, seats and duties, published the moment they&rsquo;re ready.</p>
-      <div class="login-bars" aria-hidden="true"><span style="height: 90px"></span><span style="height: 140px"></span><span style="height: 190px"></span></div>
+      <svg class="login-illustration" viewBox="0 0 320 220" width="320" height="220" aria-hidden="true">
+        {# a stack of three closed books, each with a spine line #}
+        <rect x="8" y="178" width="150" height="34" rx="6" fill="#2b3d5c" stroke="#9aa5b8" stroke-width="2.5"/>
+        <path d="M26 178v34M32 178v34" stroke="#9aa5b8" stroke-width="2.5" fill="none"/>
+        <rect x="22" y="146" width="122" height="32" rx="6" fill="#5b7fbf" stroke="#dfe4ee" stroke-width="2.5"/>
+        <path d="M38 146v32" stroke="#dfe4ee" stroke-width="2.5" fill="none"/>
+        <rect x="36" y="118" width="94" height="28" rx="6" fill="#e8eaed" stroke="#6f7a8c" stroke-width="2.5"/>
+        <path d="M51 118v28" stroke="#6f7a8c" stroke-width="2.5" fill="none"/>
+
+        {# a subtle clock above the books #}
+        <g opacity=".6" fill="none" stroke="#e8eaed" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="70" cy="62" r="24"/><path d="M70 48v14l10 6"/>
+        </g>
+
+        {# the exam paper: heading, text lines and three tick boxes (the first one ticked) #}
+        <g transform="translate(170 26) rotate(6)">
+          <rect width="132" height="172" rx="8" fill="#e8eaed" stroke="#cfd5e0" stroke-width="2.5"/>
+          <rect x="14" y="16" width="62" height="6" rx="3" fill="#5b7fbf"/>
+          <rect x="14" y="32" width="102" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="14" y="43" width="84" height="5" rx="2.5" fill="#aab4c5"/>
+          <g fill="none" stroke="#6f7a8c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="14" y="62" width="13" height="13" rx="3"/>
+            <rect x="14" y="88" width="13" height="13" rx="3"/>
+            <rect x="14" y="114" width="13" height="13" rx="3"/>
+            <path d="M17 69l3 3 6-7" stroke="#5b7fbf"/>
+          </g>
+          <rect x="36" y="66" width="74" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="36" y="92" width="62" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="36" y="118" width="70" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="14" y="142" width="96" height="5" rx="2.5" fill="#aab4c5"/>
+        </g>
+
+        {# a pencil lying diagonally across the paper #}
+        <g transform="translate(184 178) rotate(-38)" stroke-linejoin="round">
+          <rect x="-12" y="-5.5" width="12" height="11" rx="3" fill="#6f7a8c"/>
+          <rect x="0" y="-5.5" width="88" height="11" fill="#5b7fbf" stroke="#1b2a41" stroke-width="2"/>
+          <path d="M8 -5.5v11" stroke="#1b2a41" stroke-width="2"/>
+          <path d="M88 -5.5L112 0L88 5.5z" fill="#e8eaed" stroke="#1b2a41" stroke-width="2"/>
+          <path d="M106 -1.6L112 0L106 1.6z" fill="#1b2a41"/>
+        </g>
+      </svg>
     </div>
 
     <div class="login-foot">AUTOMATED EXAMINATION MANAGEMENT AND SCHEDULING SYSTEM</div>
