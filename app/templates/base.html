@@ -9,6 +9,7 @@
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body class="{% block body_class %}{% endblock %}">
+{% block nav %}
 {% if session.get('role') == 'ADMIN' %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
@@ -78,6 +79,7 @@
   </div>
 </nav>
 {% endif %}
+{% endblock %}
 
 {# shown by the script below while the browser has no network connection #}
 <div id="connection-alert" class="d-none d-print-none" role="alert"></div>

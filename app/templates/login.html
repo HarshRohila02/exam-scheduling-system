@@ -1,44 +1,78 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
-{# the page is a full-height column: dark top bar, then the card centred in the space that is left #}
-{% block body_class %}d-flex flex-column min-vh-100{% endblock %}
-{% block main_class %}flex-grow-1 d-flex align-items-center justify-content-center px-3 py-4{% endblock %}
-{# messages are shown inside the card's width instead of as a full-width banner #}
+{# this page is a full-screen split layout: no top bar, no outer margins, exactly one screen high #}
+{% block nav %}{% endblock %}
+{% block body_class %}login-page d-flex flex-column{% endblock %}
+{% block main_class %}flex-grow-1 d-flex p-0{% endblock %}
+{# messages are shown above the form instead of as a full-width banner #}
 {% block flashes %}{% endblock %}
 {% block content %}
-<div class="w-100" style="max-width: 420px;">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for category, message in messages %}
-      <div class="alert alert-{{ category }} alert-dismissible fade show flash" style="white-space: pre-line">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-      </div>
-    {% endfor %}
-  {% endwith %}
+<div class="row g-0 w-100 flex-grow-1">
 
-  <div class="card shadow-sm">
-    <div class="card-header bg-dark text-white">
-      <h5 class="mb-1">Sign in</h5>
-      <div class="small">Automated Examination Management and Scheduling System</div>
+  {# left half: dark panel (hidden below 768px) #}
+  <div class="col-md-6 login-art d-none d-md-flex flex-column justify-content-between">
+    <div class="login-brand">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 2.5v3M16 2.5v3M8 15l2.5 2.5L16 13"/></svg>
+      <span>EXAM SCHEDULING</span>
     </div>
-    <div class="card-body">
+
+    <div>
+      <h1 class="login-headline">Your exams.<br>All in one place.</h1>
+      <p class="login-lead">Dates, rooms, seats and duties, published the moment they&rsquo;re ready.</p>
+      <div class="login-bars" aria-hidden="true"><span style="height: 90px"></span><span style="height: 140px"></span><span style="height: 190px"></span></div>
+    </div>
+
+    <div class="login-foot">AUTOMATED EXAMINATION MANAGEMENT AND SCHEDULING SYSTEM</div>
+  </div>
+
+  {# right half: the form #}
+  <div class="col-12 col-md-6 login-form-side d-flex align-items-center justify-content-center">
+    <div class="w-100" style="max-width: 380px;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show flash py-2 small login-flash">
+            {{ message }}
+            <button type="button" class="btn-close login-flash-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="login-kicker">SIGN IN</div>
+      <h3 class="fs-3 fw-bold mb-1">Welcome back</h3>
+      <p class="text-muted small mb-4">Automated Examination Management and Scheduling System</p>
       <form method="post" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-3">
           <label class="form-label" for="username">Username or enrollment number <span class="text-danger">*</span></label>
           <input class="form-control" id="username" name="username" autocomplete="username" autofocus>
-          <div class="form-text">Students: your enrollment number, for example S001. Exam staff: your admin username.</div>
         </div>
         <div class="mb-3">
           <label class="form-label" for="password">Password <span class="text-danger">*</span></label>
-          <input class="form-control" id="password" name="password" type="password" autocomplete="current-password">
+          <div class="input-group">
+            <input class="form-control" id="password" name="password" type="password" autocomplete="current-password">
+            <button class="btn btn-outline-secondary" type="button" id="peek" aria-label="Show password" title="Show password">
+              <svg viewBox="0 0 24 24" width="20" height="20" class="login-eye" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
-        <button class="btn btn-primary w-100">Log in</button>
+        <button class="btn btn-navy w-100">Log in</button>
       </form>
-      <p class="small-muted text-center mt-3 mb-0">First time here? Use the temporary password from the exam cell;
-        you will choose your own right after.</p>
+      <p class="small-muted text-center mt-3 mb-0">First time here? Use the temporary password from the exam cell; you choose your own right after.</p>
+      <div class="login-hints">Students: enrollment number, e.g. S001 &middot; Faculty: your faculty username &middot; Exam staff: your admin username</div>
     </div>
   </div>
-  <p class="small-muted text-center mt-3 mb-0">&copy; 2026 Examination Cell</p>
+
 </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // show / hide the password
+  document.getElementById("peek").addEventListener("click", function () {
+    var box = document.getElementById("password");
+    var show = box.type === "password";
+    box.type = show ? "text" : "password";
+    this.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    this.title = show ? "Hide password" : "Show password";
+  });
+</script>
 {% endblock %}
