@@ -5,3 +5,14 @@ body { background: #f5f6f8; }
 .small-muted { font-size: .85rem; color: #6c757d; }
 pre.report { background: #fff; border: 1px solid #dee2e6; padding: 1rem; border-radius: 4px; }
 
+
+/* Student pages: small screens and printing (everything else comes from Bootstrap and the rules above) */
+@media (max-width: 767.98px) {
+  main.container-fluid { padding-left: .75rem !important; padding-right: .75rem !important; }
+  .table { font-size: .9rem; }
+}
+@media print {
+  body { background: #fff; }
+  main.container-fluid { padding: 0 !important; }
+  .table-responsive { overflow: visible; }
+}

@@ -1,53 +1,37 @@
 {% extends "base.html" %}
-{% from "student/_macros.html" import date_badge, when_tag %}
+{% from "student/_macros.html" import when_badge, type_badge, not_yet %}
 {% block title %}{{ exam.course }} Exam{% endblock %}
 {% block content %}
-<a class="link-cute small d-print-none" href="{{ url_for('student.timetable') }}">← Back to my timetable</a>
-
-{# an "exam ticket": what to bring along in your head on exam day #}
-<div class="ticket mt-3 mb-4">
-  <div class="ticket-top">
-    {{ date_badge(exam) }}
-    <div class="min-w-0">
-      <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
-        <span class="course-code">{{ exam.course }}</span>
-        {{ when_tag(exam) }}
-        {% if exam.exam_type == 'backlog' %}<span class="tag tag-backlog">Backlog</span>{% endif %}
-      </div>
-      <h4 class="mb-1">{{ exam.course_name }}</h4>
-      <div class="exam-meta">{{ exam.weekday }}, {{ exam.date_text }} &middot; {{ exam.session }} session,
-        {{ exam.start_time }}&ndash;{{ exam.end_time }} &middot; {{ exam.duration_minutes }} minutes</div>
-    </div>
+<div class="d-flex flex-wrap justify-content-between align-items-start mb-3 gap-2">
+  <div>
+    <h3 class="mb-1">{{ exam.course }} - {{ exam.course_name }} {{ when_badge(exam) }} {{ type_badge(exam) }}</h3>
+    <div class="text-muted">{{ exam.weekday }}, {{ exam.date_text }} | {{ exam.session }} session,
+      {{ exam.start_time }}&ndash;{{ exam.end_time }} | {{ exam.duration_minutes }} minutes</div>
   </div>
-  <div class="ticket-cut"></div>
-  {% if not exam.seat %}
-  <div class="ticket-bottom"><div class="big-tile tile-seat"><div class="tile-label">🪑 Room and seat</div>
-    <div class="tile-sub">Seating information not yet available</div></div></div>
-  {% else %}
-  <div class="row g-3 ticket-bottom">
-    <div class="col-sm-6">
-      <div class="big-tile tile-room h-100">
-        <div class="tile-label">🏫 Examination room</div>
-        <div class="seat-badge">{{ exam.room }}</div>
-        {% if room %}<div class="tile-sub">Building: {{ room.building }}</div>{% endif %}
-      </div>
-    </div>
-    <div class="col-sm-6">
-      <div class="big-tile tile-seat h-100">
-        <div class="tile-label">🪑 Your seat</div>
-        <div class="seat-badge">{{ exam.seat }}</div>
-        {% if room %}<div class="tile-sub">Seat {{ exam.seat.split('-S')[-1]|int }} of {{ room.capacity }} in this room</div>{% endif %}
-      </div>
-    </div>
-  </div>
-  {% endif %}
+  <a class="btn btn-outline-secondary d-print-none" href="{{ url_for('student.timetable') }}">Back to my timetable</a>
 </div>
+
+<div class="card shadow-sm mb-4"><div class="card-body">
+  <h5>Room and seat</h5>
+  {% if exam.seat %}
+  <div class="row text-center g-3">
+    <div class="col-sm-6">
+      <div class="display-6">{{ exam.room }}</div>
+      <div class="text-muted">Examination room{% if room %} (building: {{ room.building }}){% endif %}</div>
+    </div>
+    <div class="col-sm-6">
+      <div class="display-6">{{ exam.seat }}</div>
+      <div class="text-muted">Your seat{% if room %} (seat {{ exam.seat.split('-S')[-1]|int }} of {{ room.capacity }} in this room){% endif %}</div>
+    </div>
+  </div>
+  {% else %}
+  <p class="mb-0">{{ not_yet() }}</p>
+  {% endif %}
+</div></div>
 
 {% if exam.instructions %}
-<div class="soft-card note-card mb-4">
-  <div class="soft-card-title">📝 Instructions for {{ exam.course }}</div>
-  <div class="instructions">{{ exam.instructions }}</div>
-</div>
+<div class="alert alert-info" style="white-space: pre-line"><strong>Instructions for {{ exam.course }}:</strong>
+{{ exam.instructions }}</div>
 {% endif %}
 {% include "student/_instructions.html" %}
 {% endblock %}

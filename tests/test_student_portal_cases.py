@@ -90,8 +90,8 @@ def page_of(browser, url):
 
 
 def cards(page):
-    """The timetable page split into one text block per exam card (in page order)."""
-    return re.findall(r'<a class="exam-tile.*?</a>', page, flags=re.S)
+    """The timetable page split into one text block per exam row (in page order)."""
+    return re.findall(r'<tr class="exam-row">.*?</tr>', page, flags=re.S)
 
 
 # ================================================================ login (TC01 - TC04)
@@ -417,9 +417,10 @@ def test_SP_TC29_pages_are_mobile_friendly(client, sample):
     browser = student(sample)
     for url in ("/student/", "/student/timetable", "/student/notifications"):
         assert 'name="viewport" content="width=device-width, initial-scale=1"' in page_of(browser, url), url
-    css = browser.get("/static/css/student.css").data.decode()
-    assert "@media (max-width: 767.98px)" in css and "@media" in css
-    record("SP_TC29", "viewport meta on every student page; student.css has @media rules for small screens")
+    css = browser.get("/static/css/style.css").data.decode()
+    assert "@media (max-width: 767.98px)" in css and "@media print" in css
+    assert "table-responsive" in page_of(browser, "/student/timetable")      # the table scrolls instead of overflowing
+    record("SP_TC29", "viewport meta on every student page; style.css has @media rules for small screens and print; table-responsive")
 
 
 def test_SP_TC30_dashboard_loads_within_three_seconds(client, sample):
@@ -441,7 +442,7 @@ def test_SP_TC31_network_problems_show_a_proper_message(client, sample):
 
     # (b) a missing page renders the friendly error page inside the student layout
     missing = browser.get("/student/exam/CS303")
-    assert missing.status_code == 404 and b"Back to dashboard" in missing.data and b"student-nav" in missing.data
+    assert missing.status_code == 404 and b"Back to dashboard" in missing.data and b"Exam Scheduling | Student" in missing.data
 
     # (c) a crash while loading shows an error page, not a stack trace
     sample.config["PROPAGATE_EXCEPTIONS"] = False
