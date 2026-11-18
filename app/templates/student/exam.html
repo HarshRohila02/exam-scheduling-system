@@ -20,6 +20,10 @@
     </div>
   </div>
   <div class="ticket-cut"></div>
+  {% if not exam.seat %}
+  <div class="ticket-bottom"><div class="big-tile tile-seat"><div class="tile-label">🪑 Room and seat</div>
+    <div class="tile-sub">Seating information not yet available</div></div></div>
+  {% else %}
   <div class="row g-3 ticket-bottom">
     <div class="col-sm-6">
       <div class="big-tile tile-room h-100">
@@ -36,7 +40,14 @@
       </div>
     </div>
   </div>
+  {% endif %}
 </div>
 
+{% if exam.instructions %}
+<div class="soft-card note-card mb-4">
+  <div class="soft-card-title">📝 Instructions for {{ exam.course }}</div>
+  <div class="instructions">{{ exam.instructions }}</div>
+</div>
+{% endif %}
 {% include "student/_instructions.html" %}
 {% endblock %}

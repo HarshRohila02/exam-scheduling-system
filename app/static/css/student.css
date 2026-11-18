@@ -199,3 +199,7 @@
   .login-mascot, .hero-emoji, .empty-emoji { animation: none; }
   .btn-cute, .exam-tile { transition: none; }
 }
+
+/* an exam whose seat is not assigned yet, and an exam's own instructions on its card */
+.pill-missing { background: #fff3cd; color: #664d03; }
+.exam-own-note { flex-basis: 100%; font-size: .9rem; color: #555; border-top: 1px dashed #ddd; padding-top: .5rem; white-space: pre-line; }

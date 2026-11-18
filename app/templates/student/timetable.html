@@ -29,8 +29,8 @@
     <tbody>
     {% for e in exams %}
       <tr><td>{{ e.date_text }} ({{ e.weekday }})</td><td>{{ e.session }}</td><td>{{ e.start_time }}&ndash;{{ e.end_time }}</td>
-        <td>{{ e.course }} &ndash; {{ e.course_name }}</td><td>{{ e.duration_minutes }} min</td><td>{{ e.room }}</td>
-        <td>{{ e.seat }}</td><td>{{ 'Backlog' if e.exam_type == 'backlog' else 'Regular' }}</td></tr>
+        <td>{{ e.course }} &ndash; {{ e.course_name }}</td><td>{{ e.duration_minutes }} min</td><td>{{ e.room or "-" }}</td>
+        <td>{{ e.seat or "Seating information not yet available" }}</td><td>{{ 'Backlog' if e.exam_type == 'backlog' else 'Regular' }}</td></tr>
     {% endfor %}
     </tbody>
   </table>

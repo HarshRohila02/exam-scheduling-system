@@ -32,12 +32,16 @@
             {{ when_tag(next_exam) }}
           </div>
         </div>
+        {% if next_exam.seat %}
         <div class="row g-3 mb-3">
           <div class="col-6"><div class="big-tile tile-room"><div class="tile-label">🏫 Room</div>
             <div class="seat-badge">{{ next_exam.room }}</div></div></div>
           <div class="col-6"><div class="big-tile tile-seat"><div class="tile-label">🪑 Seat</div>
             <div class="seat-badge">{{ next_exam.seat }}</div></div></div>
         </div>
+        {% else %}
+        <p class="mb-3"><span class="mini-pill pill-missing">🪑 Seating information not yet available</span></p>
+        {% endif %}
         {% if next_exam.state == 'today' %}<p class="cheer">You've got this! 💪 Best of luck.</p>{% endif %}
         <a class="btn btn-cute btn-sm px-3" href="{{ url_for('student.exam', course_code=next_exam.course) }}">See room and seat details →</a>
       {% elif exams %}

@@ -32,8 +32,13 @@
       &middot; {{ exam.duration_minutes }} min</div>
   </div>
   <div class="seat-pills">
+    {% if exam.seat %}
     <span class="mini-pill pill-room">🏫 {{ exam.room }}</span>
     <span class="mini-pill pill-seat">🪑 {{ exam.seat }}</span>
+    {% else %}
+    <span class="mini-pill pill-missing">🪑 Seating information not yet available</span>
+    {% endif %}
   </div>
+  {% if exam.instructions %}<div class="exam-own-note">📝 {{ exam.instructions }}</div>{% endif %}
 </a>
 {%- endmacro %}
