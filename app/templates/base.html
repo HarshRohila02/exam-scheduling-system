@@ -8,7 +8,7 @@
   <link href="{{ url_for('static', filename='vendor/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 {% if session.get('role') == 'ADMIN' %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
@@ -70,12 +70,20 @@
     </div>
   </div>
 </nav>
+{% elif not session.get('role') %}
+{# not logged in (login page): just the title, no menu #}
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid">
+    <span class="navbar-brand mb-0">Exam Scheduling System</span>
+  </div>
+</nav>
 {% endif %}
 
 {# shown by the script below while the browser has no network connection #}
 <div id="connection-alert" class="d-none d-print-none" role="alert"></div>
 
-<main class="container-fluid py-4 px-4">
+<main class="{% block main_class %}container-fluid py-4 px-4{% endblock %}">
+  {% block flashes %}
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for category, message in messages %}
       <div class="alert alert-{{ category }} alert-dismissible fade show flash" style="white-space: pre-line">
@@ -84,6 +92,7 @@
       </div>
     {% endfor %}
   {% endwith %}
+  {% endblock %}
   {% block content %}{% endblock %}
 </main>
 

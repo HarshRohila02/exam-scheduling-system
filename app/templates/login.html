@@ -1,24 +1,44 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
+{# the page is a full-height column: dark top bar, then the card centred in the space that is left #}
+{% block body_class %}d-flex flex-column min-vh-100{% endblock %}
+{% block main_class %}flex-grow-1 d-flex align-items-center justify-content-center px-3 py-4{% endblock %}
+{# messages are shown inside the card's width instead of as a full-width banner #}
+{% block flashes %}{% endblock %}
 {% block content %}
-<h3 class="mb-1">Exam Scheduling System</h3>
-<p class="text-muted mb-3">Automated Examination Management and Scheduling System</p>
-<div class="card shadow-sm" style="max-width: 640px;">
-  <div class="card-body">
-    <form method="post" novalidate>
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="mb-3">
-        <label class="form-label" for="username">Username or enrollment number <span class="text-danger">*</span></label>
-        <input class="form-control" id="username" name="username" autocomplete="username" autofocus>
-        <div class="form-text">Students: your enrollment number, for example S001. Exam staff: your admin username.</div>
+<div class="w-100" style="max-width: 420px;">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ category }} alert-dismissible fade show flash" style="white-space: pre-line">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
       </div>
-      <div class="mb-3">
-        <label class="form-label" for="password">Password <span class="text-danger">*</span></label>
-        <input class="form-control" id="password" name="password" type="password" autocomplete="current-password">
-      </div>
-      <button class="btn btn-primary">Log in</button>
-    </form>
-    <p class="small-muted mt-3 mb-0">First time here? Use the temporary password from the exam cell; you will choose your own right after.</p>
+    {% endfor %}
+  {% endwith %}
+
+  <div class="card shadow-sm">
+    <div class="card-header bg-dark text-white">
+      <h5 class="mb-1">Sign in</h5>
+      <div class="small">Automated Examination Management and Scheduling System</div>
+    </div>
+    <div class="card-body">
+      <form method="post" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label" for="username">Username or enrollment number <span class="text-danger">*</span></label>
+          <input class="form-control" id="username" name="username" autocomplete="username" autofocus>
+          <div class="form-text">Students: your enrollment number, for example S001. Exam staff: your admin username.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="password">Password <span class="text-danger">*</span></label>
+          <input class="form-control" id="password" name="password" type="password" autocomplete="current-password">
+        </div>
+        <button class="btn btn-primary w-100">Log in</button>
+      </form>
+      <p class="small-muted text-center mt-3 mb-0">First time here? Use the temporary password from the exam cell;
+        you will choose your own right after.</p>
+    </div>
   </div>
+  <p class="small-muted text-center mt-3 mb-0">&copy; 2026 Examination Cell</p>
 </div>
 {% endblock %}
