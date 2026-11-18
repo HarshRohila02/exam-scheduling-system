@@ -5,3 +5,33 @@ body { background: #f5f6f8; }
 .small-muted { font-size: .85rem; color: #6c757d; }
 pre.report { background: #fff; border: 1px solid #dee2e6; padding: 1rem; border-radius: 4px; }
 
+
+/* Student pages: small screens and printing (everything else comes from Bootstrap and the rules above) */
+@media (max-width: 767.98px) {
+  main.container-fluid { padding-left: .75rem !important; padding-right: .75rem !important; }
+  .table { font-size: .9rem; }
+}
+@media print {
+  body { background: #fff; }
+  main.container-fluid { padding: 0 !important; }
+  .table-responsive { overflow: visible; }
+}
+
+/* Login page: full-screen split layout. Left half dark, right half the form; below 768px only the form (the left
+   panel has Bootstrap's d-none d-md-flex). One screen high on desktop, free to grow on small phones. */
+.login-page { min-height: 100vh; }
+@media (min-width: 768px) { .login-page { height: 100vh; overflow: hidden; } }
+.login-art { background: #1b2a41; color: #fff; padding: 2.5rem 3.5rem; }
+.login-brand { display: flex; align-items: center; gap: .7rem; font-weight: 700; letter-spacing: .12em; }
+.login-brand svg, .login-eye { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.login-headline { font-size: 3rem; font-weight: 700; line-height: 1.15; margin-bottom: 1rem; }
+.login-lead { color: rgba(255, 255, 255, .65); max-width: 26rem; margin-bottom: 2rem; }
+.login-illustration { display: block; max-width: 100%; height: auto; }
+.login-foot { font-size: .68rem; letter-spacing: .12em; color: rgba(255, 255, 255, .5); }
+.login-form-side { background: #fff; padding: 2rem 1.5rem; }
+.login-kicker { font-size: .72rem; font-weight: 700; letter-spacing: .14em; color: #6c757d; margin-bottom: .35rem; }
+.login-hints { font-size: .7rem; color: #6c757d; text-align: center; margin-top: 1.25rem; }
+.login-flash { margin-bottom: .75rem; }
+.login-flash-close { padding: .65rem .75rem; font-size: .65rem; }
+.btn-navy { background: #1b2a41; border-color: #1b2a41; color: #fff; }
+.btn-navy:hover, .btn-navy:focus { background: #26395a; border-color: #26395a; color: #fff; }

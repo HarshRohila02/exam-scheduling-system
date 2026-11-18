@@ -64,10 +64,11 @@ ENTITIES: Dict[str, Entity] = {
          Field("name", "Course Name", max_len=120),
          Field("semester", "Semester", "int", min=1, max=8),
          Field("exam_duration_minutes", "Exam Duration (min)", "int", required=False,
-               min=30, max=360, default=180)],
+               min=30, max=360, default=180),
+         Field("exam_instructions", "Exam Instructions (shown to students)", required=False, max_len=1000)],
         ("course_code",),
         {"course_code": "CS301", "name": "Software Engineering", "semester": "5",
-         "exam_duration_minutes": "180"}),
+         "exam_duration_minutes": "180", "exam_instructions": "Calculators are allowed."}),
     "faculty": Entity(
         "faculty", "Faculty", "Faculty member", Faculty, "faculty_id",
         [Field("faculty_id", "Faculty ID", "id", max_len=20),

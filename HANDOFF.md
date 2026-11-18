@@ -206,11 +206,53 @@ pytest -v          # about a minute; uses in-memory SQLite, no Docker or MySQL
 ```
 `tests/conftest.py` gives you `app`, `client` (already logged in as admin) and `sample` (sample data loaded). `CSRF_ENABLED` is off in tests.
 Each `test_TCnn_*` test is one row of the test-case document for this module and its actual output is written to `tests/test_results.json` (git-ignored).
-There are 86 tests at the time of writing. Test files: `test_scheduler.py` (TC02-TC13 and conflict explanations), `test_validator.py` (TC14-TC17 and hand-edited timetables),
+There are 86 tests in these files (plus the Student Portal tests, below). Test files: `test_scheduler.py` (TC02-TC13 and conflict explanations), `test_validator.py` (TC14-TC17 and hand-edited timetables),
 `test_publishing.py` (TC01, TC18-TC22, the publish / discard / archive workflow and the Faculty/Student hand-off functions), `test_csrf.py` (the form token check,
 which the other tests switch off), plus the data and calendar tests.
 Changes from the first prototype's test cases: TC08 now means "a course larger than all rooms together is reported" (a course bigger than one room is split, see TC08b),
 and TC20 / TC21 were reworded (non-admin users cannot publish; a conflict result cannot be published).
+
+### Student Portal test cases (SRS 3.2.7 - 3.2.8)
+`tests/test_student_portal_cases.py` has one test per row of the Student Portal test-case document. The `SP_` prefix keeps these IDs apart from
+the Admin Portal's TC numbers above (both modules use TC01-TC22); the conftest records them as `SP_TC01` ... `SP_TC32` in `tests/test_results.json`.
+The document's second "TC15" in section 5 is TC18. TC29 and TC30 are simple automated checks, not a real phone or load test. TC12 and TC20 move one exam to a
+different day in a new draft before publishing it, then check that the student page shows the new date and not the old one.
+One extra test (`test_course_instructions_column_is_added_to_an_old_database`) covers the startup step that adds `Course.exam_instructions`.
+
+| TC | Scenario | Test |
+|---|---|---|
+| TC01 | Login, valid credentials | `test_SP_TC01_login_with_valid_credentials` |
+| TC02 | Login, wrong password | `test_SP_TC02_login_with_wrong_password` |
+| TC03 | Login, empty credentials | `test_SP_TC03_login_with_empty_credentials` |
+| TC04 | Dashboard without login | `test_SP_TC04_dashboard_without_login` |
+| TC05 | View registered exams | `test_SP_TC05_all_registered_exams_are_shown` |
+| TC06 | No registrations | `test_SP_TC06_student_without_registrations` |
+| TC07 | Course-wise info | `test_SP_TC07_exam_info_is_against_the_right_course` |
+| TC08 | Student-specific info | `test_SP_TC08_only_own_exam_info_is_shown` |
+| TC09 | View published timetable | `test_SP_TC09_published_timetable_is_shown` |
+| TC10 | Date and session | `test_SP_TC10_correct_date_and_session` |
+| TC11 | Multiple dates | `test_SP_TC11_exams_are_in_chronological_order` |
+| TC12 | Revised timetable | `test_SP_TC12_revised_timetable_shows_latest_published_dates` |
+| TC13 | Allocated room | `test_SP_TC13_allocated_room_is_shown` |
+| TC14 | Allocated seat | `test_SP_TC14_allocated_seat_is_shown` |
+| TC15 | Multiple exams seating | `test_SP_TC15_each_exam_shows_its_own_room_and_seat` |
+| TC16 | Missing seat | `test_SP_TC16_missing_seat_shows_a_message` |
+| TC17 | Before publication | `test_SP_TC17_nothing_before_publication` |
+| TC18 | After publication | `test_SP_TC18_details_after_publication` |
+| TC19 | Seating before publication | `test_SP_TC19_seating_stays_hidden_before_publication` |
+| TC20 | Latest published schedule | `test_SP_TC20_latest_published_schedule_is_shown` |
+| TC21 | Instructions shown | `test_SP_TC21_configured_instructions_are_shown` |
+| TC22 | No instructions | `test_SP_TC22_no_instructions_is_not_an_error` |
+| TC23 | Instructions per course | `test_SP_TC23_each_course_shows_its_own_instructions` |
+| TC24 | Instructions for selected exam | `test_SP_TC24_detail_page_shows_only_that_exams_instructions` |
+| TC25 | Another student's timetable | `test_SP_TC25_another_students_timetable_is_not_available` |
+| TC26 | Another student's seat | `test_SP_TC26_another_students_seat_is_not_disclosed` |
+| TC27 | Modify exam date | `test_SP_TC27_student_cannot_change_the_exam_date` |
+| TC28 | Modify seat | `test_SP_TC28_student_cannot_change_the_seat` |
+| TC29 | Mobile screen (automated check: viewport tag + `@media`) | `test_SP_TC29_pages_are_mobile_friendly` |
+| TC30 | Dashboard load (automated check: under 3 s) | `test_SP_TC30_dashboard_loads_within_three_seconds` |
+| TC31 | Network interruption (offline alert, 404 and 500 error pages) | `test_SP_TC31_network_problems_show_a_proper_message` |
+| TC32 | Refresh (`Cache-Control: no-store`, newest publication shown) | `test_SP_TC32_refresh_shows_the_latest_published_info` |
 
 ## 9. Known limitations and open questions
 

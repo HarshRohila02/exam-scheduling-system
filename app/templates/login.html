@@ -1,70 +1,118 @@
 {% extends "base.html" %}
 {% block title %}Login{% endblock %}
-{% block body_class %}theme-login{% endblock %}
+{# this page is a full-screen split layout: no top bar, no outer margins, exactly one screen high #}
+{% block nav %}{% endblock %}
+{% block body_class %}login-page d-flex flex-column{% endblock %}
+{% block main_class %}flex-grow-1 d-flex p-0{% endblock %}
+{# messages are shown above the form instead of as a full-width banner #}
+{% block flashes %}{% endblock %}
 {% block content %}
-<div class="login-wrap">
-  <div class="login-card">
-    {# left: a friendly welcome panel (hidden on small phones) #}
-    <div class="login-art d-none d-md-flex">
-      <div class="login-mascot">🎓</div>
-      <h2>Your exams,<br>all in one place ✨</h2>
-      <ul class="login-points">
-        <li><span>📅</span> Your exam dates and times</li>
-        <li><span>🪑</span> Your room and seat number</li>
-        <li><span>🔔</span> Updates the moment they are published</li>
-      </ul>
-      <div class="bubble b1"></div><div class="bubble b2"></div><div class="bubble b3"></div>
+<div class="row g-0 w-100 flex-grow-1">
+
+  {# left half: dark panel (hidden below 768px) #}
+  <div class="col-md-6 login-art d-none d-md-flex flex-column justify-content-between">
+    <div class="login-brand">
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M3 10h18M8 2.5v3M16 2.5v3M8 15l2.5 2.5L16 13"/></svg>
+      <span>EXAM SCHEDULING</span>
     </div>
 
-    {# right: the form #}
-    <div class="login-form">
-      <div class="d-md-none login-mascot small-mascot">🎓</div>
-      <h3 class="mb-1">Welcome back! 👋</h3>
-      <p class="text-muted mb-3">Automated Examination Management and Scheduling System</p>
-      <div class="hint-chips mb-4">
-        <span class="chip chip-student">🎒 Students: log in with your enrollment number, e.g. S001</span>
-        {% if faculty_login %}
-        <a class="chip chip-staff" href="{{ url_for('auth.login') }}">Student or Exam Cell login</a>
-        {% else %}
-        <a class="chip chip-staff" href="{{ url_for('auth.login', portal='faculty') }}">Select faculty account</a>
-        {% endif %}
-        <span class="chip chip-staff">🧑‍💼 Exam staff: your admin username</span>
-      </div>
+    <div>
+      <h1 class="login-headline">Your exams.<br>All in one place.</h1>
+      <p class="login-lead">Dates, rooms, seats and duties, published the moment they&rsquo;re ready.</p>
+      <svg class="login-illustration" viewBox="0 0 320 220" width="320" height="220" aria-hidden="true">
+        {# a stack of three closed books, each with a spine line #}
+        <rect x="8" y="178" width="150" height="34" rx="6" fill="#2b3d5c" stroke="#9aa5b8" stroke-width="2.5"/>
+        <path d="M26 178v34M32 178v34" stroke="#9aa5b8" stroke-width="2.5" fill="none"/>
+        <rect x="22" y="146" width="122" height="32" rx="6" fill="#5b7fbf" stroke="#dfe4ee" stroke-width="2.5"/>
+        <path d="M38 146v32" stroke="#dfe4ee" stroke-width="2.5" fill="none"/>
+        <rect x="36" y="118" width="94" height="28" rx="6" fill="#e8eaed" stroke="#6f7a8c" stroke-width="2.5"/>
+        <path d="M51 118v28" stroke="#6f7a8c" stroke-width="2.5" fill="none"/>
+
+        {# a subtle clock above the books #}
+        <g opacity=".6" fill="none" stroke="#e8eaed" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="70" cy="62" r="24"/><path d="M70 48v14l10 6"/>
+        </g>
+
+        {# the exam paper: heading, text lines and three tick boxes (the first one ticked) #}
+        <g transform="translate(170 26) rotate(6)">
+          <rect width="132" height="172" rx="8" fill="#e8eaed" stroke="#cfd5e0" stroke-width="2.5"/>
+          <rect x="14" y="16" width="62" height="6" rx="3" fill="#5b7fbf"/>
+          <rect x="14" y="32" width="102" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="14" y="43" width="84" height="5" rx="2.5" fill="#aab4c5"/>
+          <g fill="none" stroke="#6f7a8c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="14" y="62" width="13" height="13" rx="3"/>
+            <rect x="14" y="88" width="13" height="13" rx="3"/>
+            <rect x="14" y="114" width="13" height="13" rx="3"/>
+            <path d="M17 69l3 3 6-7" stroke="#5b7fbf"/>
+          </g>
+          <rect x="36" y="66" width="74" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="36" y="92" width="62" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="36" y="118" width="70" height="5" rx="2.5" fill="#aab4c5"/>
+          <rect x="14" y="142" width="96" height="5" rx="2.5" fill="#aab4c5"/>
+        </g>
+
+        {# a pencil lying diagonally across the paper #}
+        <g transform="translate(184 178) rotate(-38)" stroke-linejoin="round">
+          <rect x="-12" y="-5.5" width="12" height="11" rx="3" fill="#6f7a8c"/>
+          <rect x="0" y="-5.5" width="88" height="11" fill="#5b7fbf" stroke="#1b2a41" stroke-width="2"/>
+          <path d="M8 -5.5v11" stroke="#1b2a41" stroke-width="2"/>
+          <path d="M88 -5.5L112 0L88 5.5z" fill="#e8eaed" stroke="#1b2a41" stroke-width="2"/>
+          <path d="M106 -1.6L112 0L106 1.6z" fill="#1b2a41"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="login-foot">AUTOMATED EXAMINATION MANAGEMENT AND SCHEDULING SYSTEM</div>
+  </div>
+
+  {# right half: the form #}
+  <div class="col-12 col-md-6 login-form-side d-flex align-items-center justify-content-center">
+    <div class="w-100" style="max-width: 380px;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show flash py-2 small login-flash">
+            {{ message }}
+            <button type="button" class="btn-close login-flash-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <div class="login-kicker">SIGN IN</div>
+      <h3 class="fs-3 fw-bold mb-1">Welcome back</h3>
+      <p class="text-muted small mb-4">Automated Examination Management and Scheduling System</p>
       <form method="post" novalidate>
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-floating mb-3">
-          {% if faculty_login %}
-          <select class="form-select" id="username" name="username" autofocus>
-            {% for person in people %}<option value="{{ person.faculty_id }}" {{ 'selected' if request.form.get('username') == person.faculty_id }}>{{ person.name }} ({{ person.faculty_id }})</option>{% endfor %}
-          </select>
-          <label for="username">Select faculty</label>
-          {% else %}
-          <input class="form-control" id="username" name="username" placeholder="Username" autocomplete="username" autofocus>
-          <label for="username">Username or enrollment number</label>
-          {% endif %}
+        <div class="mb-3">
+          <label class="form-label" for="username">Username or enrollment number <span class="text-danger">*</span></label>
+          <input class="form-control" id="username" name="username" autocomplete="username" autofocus>
         </div>
-        <div class="form-floating mb-4 position-relative">
-          <input class="form-control pe-5" id="password" name="password" type="password" placeholder="Password"
-                 autocomplete="current-password">
-          <label for="password">Password</label>
-          <button type="button" class="peek" id="peek" aria-label="Show password" title="Show password">👁️</button>
+        <div class="mb-3">
+          <label class="form-label" for="password">Password <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input class="form-control" id="password" name="password" type="password" autocomplete="current-password">
+            <button class="btn btn-outline-secondary" type="button" id="peek" aria-label="Show password" title="Show password">
+              <svg viewBox="0 0 24 24" width="20" height="20" class="login-eye" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+          </div>
         </div>
-        <button class="btn btn-cute w-100 py-2">Log in</button>
+        <button class="btn btn-navy w-100">Log in</button>
       </form>
-      <p class="small-muted text-center mt-4 mb-0">Use the password provided by the Exam Cell for your first login.</p>
+      <p class="small-muted text-center mt-3 mb-0">First time here? Use the temporary password from the exam cell; you choose your own right after.</p>
+      <div class="login-hints">Students: enrollment number, e.g. S001 &middot; <a href="{{ url_for('auth.login', portal='faculty') }}">Select faculty account</a> &middot; Exam staff: your admin username</div>
     </div>
   </div>
+
 </div>
 {% endblock %}
 {% block scripts %}
 <script>
   // show / hide the password
   document.getElementById("peek").addEventListener("click", function () {
-    const box = document.getElementById("password");
-    const show = box.type === "password";
+    var box = document.getElementById("password");
+    var show = box.type === "password";
     box.type = show ? "text" : "password";
-    this.textContent = show ? "🙈" : "👁️";
     this.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    this.title = show ? "Hide password" : "Show password";
   });
 </script>
 {% endblock %}

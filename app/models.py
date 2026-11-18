@@ -34,6 +34,8 @@ class Course(db.Model):
     name = db.Column(db.String(120), nullable=False)
     semester = db.Column(db.Integer, nullable=False)
     exam_duration_minutes = db.Column(db.Integer, nullable=False, default=180)
+    # instructions for this course's exam only (shown to its students next to the timetable-wide text)
+    exam_instructions = db.Column(db.Text, nullable=True)
     registrations = db.relationship("Registration", backref="course", cascade="all, delete-orphan")
 
 

@@ -7,6 +7,8 @@ Rules this file keeps:
 """
 from datetime import date, datetime
 
+from types import SimpleNamespace
+
 from flask import Blueprint, abort, current_app, flash, redirect, render_template, request, session, url_for
 
 from app.auth import log_action, student_required
@@ -60,6 +62,28 @@ def unread_notifications():
     return {"student_unread": count}
 
 
+@bp.after_request
+def never_reuse_an_old_copy(response):
+    """Student pages show live data (seats, dates): the browser must ask the server again on every visit
+    or refresh, so a revised timetable is never hidden behind a saved copy."""
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@bp.errorhandler(404)
+def not_found(error):
+    return render_template("error.html", error=error), 404
+
+
+@bp.errorhandler(500)
+def server_problem(error):
+    """A crash while loading a page: a friendly message, never a stack trace."""
+    db.session.rollback()
+    problem = SimpleNamespace(code=500, description="Something went wrong while loading this page. "
+                                                    "Check your connection and try again in a moment.")
+    return render_template("error.html", error=problem), 500
+
+
 # ---------------------------------------------------------------- pages
 @bp.route("/")
 @student_required
@@ -93,7 +117,7 @@ def exam(course_code):
     if mine is None:
         abort(404, "You are not registered for this exam.")
     return render_template("student/exam.html", exam=mine, instructions=instructions,
-                           room=db.session.get(Room, mine["room"]))
+                           room=db.session.get(Room, mine["room"]) if mine["room"] else None)
 
 
 @bp.route("/notifications")
